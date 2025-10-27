@@ -6,123 +6,31 @@ This file defines the core SmartApp structure and the rules an AI coding agent s
 
 The instructions below define the core structure and rules for Kelvin SmartApps in this repository. They serve as the authoritative guidance for any edits or additions to the SmartApp codebase.
 
-# User Prompt
+# Core structure to maintain
 
-On initial user prompt, you must:
+The minimal level contract for Kelvin SmartApps is how this repo starts. It focuses on the immutable core aspects that must be preserved across edits: the canonical app definition (`app.yaml`), UI schemas, the runtime entrypoint and packaging. It does *not* attempt to cover every SDK API — the offline detailed extract of the Kelvin "create" docs (v6.3) lives in `.github/dev-tools-create-smartapp.md` and is the authoritative reference for examples and copyable snippets.
 
-1. Collect detailed clarification from user on the requirements and ensure you are fully clear on what they want before starting any coding changes.
-2. Summarize the full understanding in a structured format.
-3. Upon confirmation, generate the files in strict order: requirements.txt, app.yaml, main.py, parameters.json, .dockerignore, Dockerfile, README.md and any other requested files.
-4. If user rejects summary, repeat clarification and revise until confirmed.
+What this file covers (core only)
+- Mapping user prompts to files to edit
+- Required consistency rules (app.yaml ↔ ui_schemas ↔ defaults)
+- Non-blocking streaming handler expectation for `main.py`
+- Quick verification steps (local run / docker smoke)
 
-On subsequent user prompts, you must:
-
-1. Ask a single clarifying question that maps a requested change to file(s) above. NEVER make large edits based on assumptions.
-
-# Minimal SmartApp Structure
-
-The minimal file, file contents and folder structure for Kelvin SmartApps is in the `.github/core/` folder. The final structure of this repository should mirror that minimal structure and follow this format. Files that are mandatory are noted below.
-
-```
-project-name/
-  ├── main.py                     (mandatory)
-  ├── app.yaml                    (mandatory)
-  ├── requirements.txt            (mandatory)
-  ├── Dockerfile                  (mandatory)
-  ├── .dockerignore               (mandatory)
-  ├── README.md
-  └── ui_schemas/
-      └── parameters.json         (mandatory)
-      └── configurations.json
-```
-
-# Core files (read these first)
-
-- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters) and more. Detailed infom
+Core files (read these first)
+- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters).
+- `ui_schemas/parameters.json` and `ui_schemas/configuration.json` — JSON schemas used by the Kelvin UI; keep these synchronized with `app.yaml`.
 - `main.py` — streaming handlers and business logic (use `KelvinApp`, `app.stream_filter`, and SDK message objects).
 - `requirements.txt`, `Dockerfile`, `.dockerignore` — runtime packaging and build.
  - Example apps: `.github/examples/event-detection` and `.github/examples/casting-defect-detection` — example `main.py` and `app.yaml` files that demonstrate meaningful handler structures, app.yaml layout (data_streams, control_changes, parameters), and programming patterns to reference when implementing new SmartApps.
-- `ui_schemas/parameters.json` and `ui_schemas/configuration.json` — JSON schemas used by the Kelvin UI; keep these synchronized with `app.yaml`.
 
-# Mandatory rules (apply to all edits)
-
-1. Single source of truth: `app.yaml` drives platform-facing behaviour. Detailed information about the keys and structure are in the file `.github/dev-tools-create-smartapp.md`. Any structural changes to streams/parameters/outputs must be mirrored in `ui_schemas/*` and `defaults` when appropriate.
+Mandatory rules (apply to all edits)
+1. Single source of truth: `app.yaml` drives platform-facing behaviour. Any structural changes to streams/parameters/outputs must be mirrored in `ui_schemas/*` and `defaults` when appropriate.
 2. Minimal, focused changes: one logical change per PR; provide a short rationale and a test plan in the PR description.
 3. Non-blocking handlers: `main.py` stream consumers must not block the event loop. Offload long work to `asyncio.create_task()` or background tasks.
 4. Use SDK types: prefer `KRNAsset`, `KRNAssetDataStream`, `Recommendation`, `ControlChange` and other SDK types for correctness.
 5. Declarative outputs: declare any control change outputs in `app.yaml.control_changes.outputs`.
-6. All programming changes must try to follow the Best Practices reference from `.github/dev-tools-best-practices.md`. This is not mandatory but strongly advised and can be ignored when the circumstances warrant it.
-7. Only key names defined in documentation or examples may be used in app.yaml and parameters.json.
 
-Below sub chapters give detailed rules for each core file.
-
-## main.py Rules (Strict)
-
-1. Must use async structure: `async def main()` and launched by `asyncio.run(main())`.
-2. Must use consistent imports and structure as demonstrated in the provided examples.
-3. Each input stream must be handled in an individual async function `async def FUNCTION_NAME()`.
-4. Each input stream must use: `VARIABLE = app.stream_filter(filters.input_equals("STREAM_NAME"))`.
-5. All input-handling functions must be awaited concurrently via `await asyncio.gather(...)` in `main()`.
-6. Only valid Kelvin SDK components and documented patterns may be used.
-7. Logic must pass Python concurrency and linting standards.
-8. Use correct message types (`Number`, `String`, etc.) and validate payloads.
-9. Control logic must conform to app parameter usage (`closed_loop`, thresholds, etc.).
-10. Code must be reviewed after generation to validate behavior matches spec. If not, regenerate.
-11. No global blocking code or infinite loops outside of designated input handling.
-12. Evidence, control changes, or custom actions must follow documentation exactly.
-13. Do not include any unused imports or code.
-14. Only import Kelvin SDK modules or methods from approved files and examples.
-15. All variable names used must follow the regex format <^[a-z0-9]([-_.a-z0-9]*[a-z0-9])?$>
-16. Always use asyncio.gather when running multiple async functions.
-
-These rules will be updated as needed. Every generated `main.py` must strictly follow all rules.
-
-## Recommendations
-
-- If `closed_loop` is true, set `auto_accepted=True`.
-- All recommendations must include an alert message. Control changes are optional.
-- Multiple control changes **and** actions can be included in the same Recommendation.
-- Evidence can be added to Recommendations and should be asked during clarification.
-
-## If Custom Actions are requested
-- Make sure to get one or more action `type` values from the user.
-- Confirm if it's a Producer or Consumer App (Executor). If needed, explain the difference.
-- For Consumer App, create a separate function for each custom action `type`.
-- Ensure `app.yaml` is declared correctly with inputs or outputs under `custom_actions`.
-
-## app.yaml Rules (Strict)
-1. Must contain: `spec_version: 5.0.0`, `type: app`, `name`, `title`, `description`, and `version` fields.
-2. `name` must follow this regex: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` (only lowercase letters, digits, and hyphens, must start and end with alphanumeric).
-3. Control changes only go under `control_changes:` block (never repeated under outputs).
-4. Default parameters must be specified under the `defaults:` section.
-5. Only declared data streams, parameters, or custom actions may be used. No invented keys.
-6. `ui_schemas` must reference an actual `parameters.json` file located in `ui_schemas/` folder.
-
-## parameters.json
-- Must be placed in ui_schemas folder and linked in app.yaml.
-- Property keys must match `parameters` in app.yaml.
-- Each property requires type and title; min/max are optional.
-- When app parameters are involved, you must ask for:
-  - Name
-  - Data type
-  - min/max (if numeric)
-  - Default value
-  - Display title
-- Constraints must be attributes of parameters, not separate ones.
-- You must never invent parameter names like min_* or max_*.
-
-## Dockerfile
-- Always copied byte-for-byte from default-Dockerfile sample. Never regenerated or altered.
-
-## .dockerignore
-- Always copied byte-for-byte from default-.dockerignore sample. Never regenerated or altered.
-
-## README.md
-- Describes the project.
-- Last line: `Upload the application to a Kelvin Instance with this CLI command `kelvin app upload`.
-
-# Examples — mapping prompts to edits
-
+Examples — mapping prompts to edits
 - "Add data stream `temperature_c`": `app.yaml.data_streams.inputs` + `ui_schemas/*` + optional `defaults.datastream_mapping`.
 - "Add parameter `safety_margin`": `app.yaml.parameters` + `ui_schemas/parameters.json` + `defaults.parameters`.
 - "Auto-accept recommendations": update `Recommendation` creation in `main.py` to read `kelvin_closed_loop` parameter or set `auto_accepted=True`; ensure parameter exists in `app.yaml` and ui_schemas.
@@ -130,13 +38,11 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
 "Consume timeseries / asset data": consult `.github/dev-tools-consume-timeseries-data.md` and implement handlers in `main.py` using `app.stream_filter(...)`, `app.filter(...)` (queue), or `app.on_asset_input` as appropriate; ensure corresponding inputs are declared in `app.yaml.data_streams.inputs` and use `filters` to limit scope (e.g., `input_equals`, `resource_equals`, `asset_equals`).
  - "Consume Control Changes / App-to-App messages": consult `.github/dev-tools-consume-control-changes.md` and implement callbacks or handlers using `app.on_control_change` and `app.on_control_status`; ensure `control_changes.inputs` / `control_changes.outputs` are declared and KRN resources match between producer and consumer.
 
-# Quick verification steps
+Quick verification steps
+ - Local: run `python main.py` to check imports and basic runtime (requires internet).
 
- - Local: run `python main.py` to check imports and basic runtime.
-
-# Offline reference
-
- - The full, self-contained extract of the Kelvin "create" docs (v6.3) is in `.github/dev-tools-create-smartapp.md`. Use it for copyable `app.yaml` and JSON examples and authoritative explanations when internet access is unavailable.
+Offline reference
+ - The full, self-contained extract of the Kelvin "create" docs (v6.3) is in `.github/dev-tools-create-smartapp.md`. Use it for copyable YAML/JSON examples and authoritative explanations when internet access is unavailable.
  - KRN reference: `.github/dev-tools-krn.md` — offline KRN registry (patterns, examples and regex) for stable resource naming and references.
  - Timeseries consumption patterns: `.github/dev-tools-consume-timeseries-data.md` — offline extract with copyable examples (async generator, queue, callback) and filter usage. Use this when implementing or reviewing message-handling code.
  - Control Changes (produce & consume): `.github/dev-tools-consume-control-changes.md` — offline reference with app.yaml declarations, producer/consumer Python examples, and control-change status handling.
@@ -154,8 +60,7 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
  - App Configuration (reference): `.github/dev-tools-app-configuration.md` — offline extract describing the `app.app_configuration` mapping exposed on `KelvinApp`, examples for reading simple and nested configuration keys, and a platform API example demonstrating how to post configuration updates to workloads.
  - Best Practices (reference): `.github/dev-tools-best-practices.md` — offline extract with guidance on asynchronous coding (`asyncio`), subscription vs polling, event-driven design, logging and runtime knobs, workload resources (Requests/Limits), asset-to-workload assignment, and secret management.
 
-# When you are uncertain
-
-- Ask a single clarifying question that maps a requested change to file(s) above. NEVER make large edits based on assumptions.
+When you are uncertain
+- Ask a single clarifying question that maps a requested change to file(s) above. Do not make large edits based on assumptions.
 
 This file is intentionally limited to core repository-level rules. Additions (testing patterns, SDK idioms, code cookbook) should be appended in separate sections or files after review.

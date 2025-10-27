@@ -1,0 +1,30 @@
+spec_version: 5.0.0
+type: app
+name: application-name
+title: Application Title
+description: Application Description
+version: 1.0.0
+flags:
+  enable_runtime_update:
+    configuration: false
+    parameters: true
+    resources: false
+    resource_properties: true
+data_streams:
+  inputs: []
+  outputs: []
+data_quality:
+  inputs: []
+control_changes:
+  inputs: []
+  outputs: []
+custom_actions:
+  inputs: []
+  outputs: []
+parameters: {}
+ui_schemas:
+  parameters: ui_schemas/parameters.json
+defaults:
+  configuration: {}
+  parameters: {}
+  system: {}
