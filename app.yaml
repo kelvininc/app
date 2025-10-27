@@ -1,9 +1,9 @@
 spec_version: 5.0.0
 type: app
-name: speed-rec-dataquality
-title: Speed Recommendations Data Quality
-description: Send speed recommendations if data quality metrics are above thresholds
-version: 1.0.44
+name: application-name
+title: Application Title
+description: Application Description
+version: 1.0.0
 flags:
   enable_runtime_update:
     configuration: false
@@ -11,42 +11,20 @@ flags:
     resources: false
     resource_properties: true
 data_streams:
-  inputs:
-    - name: data_quality
-      data_type: number
-    - name: speed
-      data_type: number
-    - name: casing_pressure
-      data_type: number
-    - name: tubing_pressure
-      data_type: number
+  inputs: []
   outputs: []
 data_quality:
-  inputs:
-    - name: kelvin_data_availability # !! ALLOWED: kelvin_ or others
-      data_type: number
-      data_streams:
-        - speed
-        - casing_pressure
-        - tubing_pressure
+  inputs: []
 control_changes:
   inputs: []
-  outputs:
-    - name: motor_speed_set_point
-      data_type: number
+  outputs: []
 custom_actions:
   inputs: []
   outputs: []
-parameters:
-  - name: kelvin_closed_loop
-    data_type: boolean
-  - name: dataquality_min_threshold
-    data_type: number
+parameters: {}
 ui_schemas:
   parameters: ui_schemas/parameters.json
 defaults:
   configuration: {}
-  parameters:
-    kelvin_closed_loop: false
-    dataquality_min_threshold: 59
+  parameters: {}
   system: {}

@@ -1,19 +1,5 @@
 {
     "type": "object",
-    "properties": {
-        "kelvin_closed_loop": {
-            "type": "boolean",
-            "title": "Kelvin Closed Loop"
-        },
-        "dataquality_min_threshold": {
-            "type": "number",
-            "title": "Data Quality Minimum Threshold",
-            "minimum": 50,
-            "maximum": 100
-        }
-    },
-    "required": [
-        "kelvin_closed_loop",
-        "dataquality_min_threshold"
-    ]
+    "properties": {},
+    "required": []
 }
