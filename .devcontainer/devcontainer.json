@@ -18,7 +18,13 @@
             "extensions": [
                 "ms-python.python", // Python support
                 "ms-python.vscode-pylance" // Python language server
-            ]
+            ],
+            "settings": {
+                "python.linting.enabled": true,
+                "python.linting.mypyEnabled": true,
+                "python.linting.pylintEnabled": true,
+                "editor.formatOnSave": true
+            }
         }
     }
 }

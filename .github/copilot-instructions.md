@@ -38,10 +38,10 @@ project-name/
 
 # Core files (read these first)
 
-- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters) and more. Detailed infom
+- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters) and more. Detailed information in `.github/dev-tools-create-smartapp.md`
 - `main.py` — streaming handlers and business logic (use `KelvinApp`, `app.stream_filter`, and SDK message objects).
 - `requirements.txt`, `Dockerfile`, `.dockerignore` — runtime packaging and build.
- - Example apps: `.github/examples/event-detection` and `.github/examples/casting-defect-detection` — example `main.py` and `app.yaml` files that demonstrate meaningful handler structures, app.yaml layout (data_streams, control_changes, parameters), and programming patterns to reference when implementing new SmartApps.
+- Example apps: `.github/examples/event-detection` and `.github/examples/casting-defect-detection` — example `main.py` and `app.yaml` files that demonstrate meaningful handler structures, app.yaml layout (data_streams, control_changes, parameters), and programming patterns to reference when implementing new SmartApps.
 - `ui_schemas/parameters.json` and `ui_schemas/configuration.json` — JSON schemas used by the Kelvin UI; keep these synchronized with `app.yaml`.
 
 # Mandatory rules (apply to all edits)
@@ -53,6 +53,26 @@ project-name/
 5. Declarative outputs: declare any control change outputs in `app.yaml.control_changes.outputs`.
 6. All programming changes must try to follow the Best Practices reference from `.github/dev-tools-best-practices.md`. This is not mandatory but strongly advised and can be ignored when the circumstances warrant it.
 7. Only key names defined in documentation or examples may be used in app.yaml and parameters.json.
+
+## Kelvin SDK enforcement (MANDATORY)
+
+- Do NOT invent, guess, abbreviate, alias, or fabricate any Kelvin SDK module, class, function, constant, or import path. Use only symbols and import lines that appear verbatim in this repository's authoritative docs and examples (for example: `.github/dev-tools-create-smartapp.md`, `.github/copilot-instructions.md`, and any file under `.github/examples/`).
+- Every Kelvin SDK import used in generated code must be verifiable against an example in the repo. If the exact import line or symbol cannot be found, STOP and ask a single clarifying question — do not guess.
+- When you produce code that references a Kelvin SDK symbol, include a one-line reference comment pointing to the example or doc file that demonstrates that exact symbol or import (file path and example section or line if possible).
+- Do NOT change canonical import lines. Example (forbidden):
+  - `from kelvin.message.msg_builders import ControlChange, Recommendation`  # <-- FORBIDDEN unless that exact path exists in repo examples
+  - Use the exact import shown in the docs, e.g. `from kelvin.message import ControlChange, Recommendation` if that is what the repo shows.
+- Prefer examples in `.github/dev-tools-create-smartapp.md`, `.github/examples/*`, or other `.github/*.md` examples.
+- If a user's instruction conflicts with these rules, follow these rules and ask the user to resolve the conflict.
+
+## app.yaml and JSON schema enforcement (MANDATORY)
+
+- Do NOT invent or introduce new top-level keys, parameter names, schema shapes, or configuration fields in `app.yaml` or any JSON UI schema (`ui_schemas/*.json`) that are not present in this repository's authoritative docs or examples. Use only keys and structures that appear verbatim in `.github/dev-tools-create-smartapp.md`, `.github/examples/*`, or other `.github/*.md` examples.
+- Every `app.yaml` or `ui_schemas/*.json` change must be verifiable against an example in the repo. If you cannot find an exact example demonstrating the structure or key, STOP and ask a single clarifying question — do not guess or invent a shape.
+- When generating or editing `app.yaml` or `ui_schemas/parameters.json`, include a one-line reference comment in the PR or the file (if supported) that points to the example/doc demonstrating the required key or block. Example: `# example: .github/examples/event-detection/app.yaml (input stream declaration)`.
+- JSON schema keys and property names must match the `parameters` declared in `app.yaml` exactly (case and spelling). Do not create `min_`/`max_` helper parameters; use the property's `minimum`/`maximum` attributes as shown in examples.
+- Do NOT create new helper methods, utility functions, or SDK wrappers that change the public behaviour or message contract expected by `app.yaml` or by the platform. Only implement functions and handlers that match the patterns in `.github/examples/*` and the docs (for example: `async def main()`, per-stream handlers, `app.stream_filter(...)`).
+
 
 Below sub chapters give detailed rules for each core file.
 
@@ -72,7 +92,7 @@ Below sub chapters give detailed rules for each core file.
 12. Evidence, control changes, or custom actions must follow documentation exactly.
 13. Do not include any unused imports or code.
 14. Only import Kelvin SDK modules or methods from approved files and examples.
-15. All variable names used must follow the regex format <^[a-z0-9]([-_.a-z0-9]*[a-z0-9])?$>
+15. All variable names used must follow the regex format ^[a-z0-9]([-_.a-z0-9]*[a-z0-9])?$
 16. Always use asyncio.gather when running multiple async functions.
 
 These rules will be updated as needed. Every generated `main.py` must strictly follow all rules.
@@ -93,7 +113,7 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
 ## app.yaml Rules (Strict)
 1. Must contain: `spec_version: 5.0.0`, `type: app`, `name`, `title`, `description`, and `version` fields.
 2. `name` must follow this regex: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$` (only lowercase letters, digits, and hyphens, must start and end with alphanumeric).
-3. Control changes only go under `control_changes:` block (never repeated under outputs).
+3. Control changes only go under `control_changes:` block (never repeated under `data_streams`,`outputs` key).
 4. Default parameters must be specified under the `defaults:` section.
 5. Only declared data streams, parameters, or custom actions may be used. No invented keys.
 6. `ui_schemas` must reference an actual `parameters.json` file located in `ui_schemas/` folder.
@@ -127,12 +147,18 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
 - "Add parameter `safety_margin`": `app.yaml.parameters` + `ui_schemas/parameters.json` + `defaults.parameters`.
 - "Auto-accept recommendations": update `Recommendation` creation in `main.py` to read `kelvin_closed_loop` parameter or set `auto_accepted=True`; ensure parameter exists in `app.yaml` and ui_schemas.
  - "Consume timeseries / asset data": consult `.github/dev-tools-consume-timeseries-data.md` and implement handlers in `main.py` using `app.stream_filter(...)`, `app.filter(...)` (queue), or `app.on_asset_input` as appropriate; ensure corresponding inputs are declared in `app.yaml.data_streams.inputs` and use `filters` to limit scope (e.g., `input_equals`, `resource_equals`, `asset_equals`).
-"Consume timeseries / asset data": consult `.github/dev-tools-consume-timeseries-data.md` and implement handlers in `main.py` using `app.stream_filter(...)`, `app.filter(...)` (queue), or `app.on_asset_input` as appropriate; ensure corresponding inputs are declared in `app.yaml.data_streams.inputs` and use `filters` to limit scope (e.g., `input_equals`, `resource_equals`, `asset_equals`).
  - "Consume Control Changes / App-to-App messages": consult `.github/dev-tools-consume-control-changes.md` and implement callbacks or handlers using `app.on_control_change` and `app.on_control_status`; ensure `control_changes.inputs` / `control_changes.outputs` are declared and KRN resources match between producer and consumer.
 
 # Quick verification steps
 
  - Local: run `python main.py` to check imports and basic runtime.
+
+## Linting & validation (MANDATORY)
+
+- Before finalizing any new or modified code, run the repository-configured linters and static checks and resolve any errors reported. The repository's linting configuration and commands are available in `pyproject.toml`, `.devcontainer/devcontainer.json`, and the `Dockerfile` — use those to discover the exact tools/commands (for example: `ruff`, `flake8`, `mypy`, `black --check`, or other configured tools).
+- At minimum, ensure there are no Python syntax errors (e.g., `python -m py_compile`) and that the project's linter(s) exit with success. If the exact project commands are not obvious, ask a single clarifying question before proceeding.
+- If lint or test failures are non-trivial to fix, report the failures and either (a) implement minimal, well-scoped fixes or (b) ask the user for guidance. Do not ship code that introduces new linter errors.
+
 
 # Offline reference
 
