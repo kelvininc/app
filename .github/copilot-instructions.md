@@ -53,6 +53,9 @@ project-name/
 5. Declarative outputs: declare any control change outputs in `app.yaml.control_changes.outputs`.
 6. All programming changes must try to follow the Best Practices reference from `.github/dev-tools-best-practices.md`. This is not mandatory but strongly advised and can be ignored when the circumstances warrant it.
 7. Only key names defined in documentation or examples may be used in app.yaml and parameters.json.
+8. Must check the `app.yaml` `name` key and update the appropriate fields.
+    a. If it is `application-name`, then also update the `name`, `title` and `description` fields to appropriate values.
+    b. If it is NOT `application-name`, then increment the third digit of the version number.
 
 ## Kelvin SDK enforcement (MANDATORY)
 
