@@ -1,109 +1,117 @@
-Title: Consume Custom Actions — Kelvin SDK (v6.3) — Depth-0 extract
-Source: https://docs.kelvin.ai/6.3/developer-tools/how-to/develop/consume/custom-actions/
-Fetched: 2025-10-27
+# Custom Actions
 
-Detailed Summary:
-Custom Actions let one Kelvin SmartApp (the Publisher) ask another SmartApp (the Executor / Consumer) to perform arbitrary application-level work. Custom Actions are routed by a string "type" declared by the publisher and a matching input declared by the consumer. Important platform rules:
+## Custom Action Data Messages
 
-- The consumer must declare the Custom Action `type` it will accept in its `app.yaml` under `custom_actions.inputs`.
-- For each Custom Action `type`, only one Consumer Application (Executor) may be deployed to receive that type on a given Kelvin platform — multiple consumers with identical type are not supported.
-- Custom Actions carry a `resource` (KRNAsset), a `payload` object with arbitrary custom data required by the consumer, and metadata such as `expiration_date` and optional `trace_id` for tracking.
+You can use Custom Actions to enable communication between two Applications on either the same cluster or across different clusters.
 
-This document provides the essential examples (app.yaml and Python) and notes so the repo maintainer can implement or review Custom Action handlers offline.
+!!! note
 
-Key examples:
+    To understand the purpose of Custom Actions or view the overall structure of how they work, check out the [documentation in the overview page here](../../../../overview/concepts/custom-action.md).
 
-1) app.yaml: declare a Custom Action input (consumer / executor)
-```yaml
+<iframe width="800" height="450" src="https://www.youtube.com/embed/jMD7oIb6Vf4?si=OWBkhHJAC6yfMnSz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+As a consumer of Custom Action Messages, this Application is defined as Consumer (Executor) Application.
+
+!!! note
+
+    The Publisher Application which outputs Custom Actions to a Consumer (Executor) Application, is discussed in detail in the [Produce Custom Action section here](../produce/custom-actions.md).
+
+To ensure the Custom Action Messages are handled properly, the `app.yaml` inputs needs to be declared:
+
+!!! warning
+
+    Only **ONE** Consumer (Executor) Application can be deployed on the Kelvin Platform to receive each Type name.
+
+    Multiple Consumer (Executor) Applications with the same TYPE name is not supported.
+
+```yaml title="app.yaml Example" linenums="1"
+custom_actions:
+  inputs:
+    - type: custom-action-name
+```
+
+The Custom Action Object in the `main.py` script supports the following attributes :
+
+| Attribute           | Required     | Default Value | Description                                                                          |
+|---------------------|--------------|---------------| -------------------------------------------------------------------------------------|
+| `resource`          | **required** |      N/A      | The KRNAsset that this Custom Action is meant for.                                   |
+| `type`              | **required** |      N/A      | The name of Custom Action.                                   |
+| `title`             | **required** |      N/A      | Title of the Custom Action                                      |
+| `description`      | **required** |      N/A      | Description details of the Custom Action                                     |
+| `expiration_date`   | **required** |      N/A      | Absolute datetime or a timedelta (from now) when the Control Change will expire.     |
+| `payload`           | **required** |      N/A      | The custom information of the Custom Action that will be required by the Consumer Application |
+| `trace_id`           | **optional** |      N/A      | A custom id for tracking the Custom Action status |
+
+The Custom Action Result Object supports the following attributes :
+
+| Attribute           | Required     | Default Value | Description                                                                          |
+|---------------------|--------------|---------------| -------------------------------------------------------------------------------------|
+| `success`          | **required** |      N/A      | Whether the Custom Actions were completed successfully. Boolean `True` or `False`.         |
+| `message`              | **optional** |      N/A      | Any message to return to the Publishing Application.                                   |
+| `metadata`             | **optional** |      N/A      | Any additional metadata that needs to be returned to the Publishing Application  |
+| `action_id`             | **optional** |      N/A      | The `id` of the Custom Action Object  |
+| `resource`             | **optional** |      N/A      | The KRNAsset that this Custom Action is meant for. |
+
+## Consumer App Example
+
+In this example we will create a Consumer (Executor) Application that will;
+
+1. Listen and receive any new Custom Action objects with the type `email`.
+1. Extract the relevant email information from the `payload`
+1. Connect to an SMTP and send the email (This function is defined but not fully coded)
+1. Return the status of the Custom Action (`True` or `False`)
+
+Check out the [Produce Custom Actions documentation here](../produce/custom-actions.md) to see how to send this Custom Action from the Publisher Application.
+
+**app.yaml**
+
+```yaml title="app.yaml Example" linenums="1"
+spec_version: 5.0.0
+type: app            # Any app type can handle and/or publish custom actions.
+
+name: hello-app
+title: Hello App
+description: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+version: 1.0.0
+
 custom_actions:
   inputs:
     - type: email
+
+  ...
 ```
 
-2) Attributes of the CustomAction object (summary)
-- resource (required): The `KRNAsset` that this Custom Action is meant for.
-- type (required): Name of the Custom Action (string).
-- title (required): Human-friendly title.
-- description (required): Description of what the action does.
-- expiration_date (required): Absolute datetime or timedelta when the action expires.
-- payload (required): Arbitrary JSON/object containing action parameters.
-- trace_id (optional): Custom id for tracking the action status.
+**Consumer (Executor) Application**
 
-3) Attributes of the CustomActionResult (summary)
-- success (required): Boolean indicating success or failure.
-- message (optional): Optional human-readable message.
-- metadata (optional): Additional metadata to return to the publisher.
-- action_id (optional): ID of the Custom Action object being reported on.
-- resource (optional): KRNAsset associated with the result.
-
-4) Consumer (Executor) `main.py` example — receive, act, respond
-```python
-import asyncio
+```python title="main.py Example" linenums="1"
 from kelvin.application import KelvinApp
 from kelvin.message import CustomAction, CustomActionResult
 
-app = None
+app = KelvinApp()
 
 async def send_mail(recipient, subject, body):
-    # Placeholder for real SMTP/email sending logic
     print(f"Sending email to {recipient}")
-    # e.g., use aiosmtplib or another async email client here
 
-async def on_custom_action(action: CustomAction) -> None:
-    # Only react to types this consumer handles
+async def on_custom_action(action: CustomAction):
     if action.type == "email":
         try:
             await send_mail(
                 action.payload.get("recipient"),
                 action.payload.get("subject"),
-                action.payload.get("body"),
+                action.payload.get("body")
             )
-            # Publish a CustomActionResult back to the platform to inform the publisher
-            await app.publish(
-                CustomActionResult(
-                    success=True,
-                    action_id=action._msg.id,
-                    resource=action.resource,
-                    metadata={},
-                )
-            )
+
+            await app.publish(CustomActionResult(
+                success=True,
+                action_id=action._msg.id,
+                resource=action.resource,
+                metadata={}
+            ))
+
         except Exception as e:
-            # If the action fails, publish a failed result
-            await app.publish(
-                CustomActionResult(
-                    success=False,
-                    action_id=action._msg.id,
-                    message=str(e),
-                    resource=action.resource,
-                )
-            )
+            await app.publish(action.result(success=False, message=str(e)))
 
-async def main() -> None:
-    global app
-    app = KelvinApp()
-    app.on_custom_action = on_custom_action
-    await app.connect()
-    # Keep the app running; the platform will call on_custom_action
-    while True:
-        await asyncio.sleep(1)
+app.on_custom_action = on_custom_action
 
-if __name__ == "__main__":
-    asyncio.run(main())
+app.run()
 ```
-
-Notes:
-- Declare the `custom_actions.inputs` types in `app.yaml` for any consumer application.
-- Ensure the action `type` is globally unique per cluster — only one executor per type is allowed; choose type names carefully (prefix with your org or app name to avoid collisions).
-- Keep handlers non-blocking: do minimal work in the callback and offload heavier tasks via `asyncio.create_task` or background workers.
-- Validate `payload` contents strictly; the publisher and consumer must agree on the payload schema and units.
-- Publish `CustomActionResult` objects to report success/failure back to the producer; include `action_id` to correlate results.
-- Consider security and safety: Custom Actions may trigger side effects (emails, actuations). Add guardrails, permission checks, and review processes before enabling production publishers that trigger actions.
-- Add unit/integration tests: simulate publishing a CustomAction and assert the executor publishes the correct `CustomActionResult`.
-- When editing `app.yaml`, update `ui_schemas/*` and `defaults` to keep the repository consistent.
-
-Authoritative link
-https://docs.kelvin.ai/6.3/developer-tools/how-to/develop/consume/custom-actions/
-
----
-
-This file is a depth-0 offline extract intended for repository reviewers and contributors who do not have internet access.

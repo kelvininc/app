@@ -1,6 +1,6 @@
 # Purpose
 
-This file defines the core SmartApp structure and the rules an AI coding agent should follow when editing this repository. All edit requests must be interpreted against this guidance first. For the detailed Kelvin docs extract, see `.github/dev-tools-create-smartapp.md` (it contains the depth-0 summary and copyable snippets).
+This file defines the core SmartApp structure and the rules an AI coding agent should follow when editing this repository. All edit requests must be interpreted against this guidance first. For the detailed Kelvin docs extract, see `.github/dev-tools-create.md` (it contains the depth-0 summary and copyable snippets).
 
 # Copilot instructions
 
@@ -38,7 +38,7 @@ project-name/
 
 # Core files (read these first)
 
-- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters) and more. Detailed information in `.github/dev-tools-create-smartapp.md`
+- `app.yaml` — authoritative definition of data streams, data-quality validators, control_changes, parameters, ui_schemas, and defaults (system, datastream_mapping, configuration, parameters) and more. Detailed information in `.github/dev-tools-create.md`
 - `main.py` — streaming handlers and business logic (use `KelvinApp`, `app.stream_filter`, and SDK message objects).
 - `requirements.txt`, `Dockerfile`, `.dockerignore` — runtime packaging and build.
 - Example apps: `.github/examples/event-detection` and `.github/examples/casting-defect-detection` — example `main.py` and `app.yaml` files that demonstrate meaningful handler structures, app.yaml layout (data_streams, control_changes, parameters), and programming patterns to reference when implementing new SmartApps.
@@ -46,7 +46,7 @@ project-name/
 
 # Mandatory rules (apply to all edits)
 
-1. Single source of truth: `app.yaml` drives platform-facing behaviour. Detailed information about the keys and structure are in the file `.github/dev-tools-create-smartapp.md`. Any structural changes to streams/parameters/outputs must be mirrored in `ui_schemas/*` and `defaults` when appropriate.
+1. Single source of truth: `app.yaml` drives platform-facing behaviour. Detailed information about the keys and structure are in the file `.github/dev-tools-create.md`. Any structural changes to streams/parameters/outputs must be mirrored in `ui_schemas/*` and `defaults` when appropriate.
 2. Minimal, focused changes: one logical change per PR; provide a short rationale and a test plan in the PR description.
 3. Non-blocking handlers: `main.py` stream consumers must not block the event loop. Offload long work to `asyncio.create_task()` or background tasks.
 4. Use SDK types: prefer `KRNAsset`, `KRNAssetDataStream`, `Recommendation`, `ControlChange` and other SDK types for correctness.
@@ -59,18 +59,18 @@ project-name/
 
 ## Kelvin SDK enforcement (MANDATORY)
 
-- Do NOT invent, guess, abbreviate, alias, or fabricate any Kelvin SDK module, class, function, constant, or import path. Use only symbols and import lines that appear verbatim in this repository's authoritative docs and examples (for example: `.github/dev-tools-create-smartapp.md`, `.github/copilot-instructions.md`, and any file under `.github/examples/`).
+- Do NOT invent, guess, abbreviate, alias, or fabricate any Kelvin SDK module, class, function, constant, or import path. Use only symbols and import lines that appear verbatim in this repository's authoritative docs and examples (for example: `.github/dev-tools-create.md`, `.github/copilot-instructions.md`, and any file under `.github/examples/`).
 - Every Kelvin SDK import used in generated code must be verifiable against an example in the repo. If the exact import line or symbol cannot be found, STOP and ask a single clarifying question — do not guess.
 - When you produce code that references a Kelvin SDK symbol, include a one-line reference comment pointing to the example or doc file that demonstrates that exact symbol or import (file path and example section or line if possible).
 - Do NOT change canonical import lines. Example (forbidden):
   - `from kelvin.message.msg_builders import ControlChange, Recommendation`  # <-- FORBIDDEN unless that exact path exists in repo examples
   - Use the exact import shown in the docs, e.g. `from kelvin.message import ControlChange, Recommendation` if that is what the repo shows.
-- Prefer examples in `.github/dev-tools-create-smartapp.md`, `.github/examples/*`, or other `.github/*.md` examples.
+- Prefer examples in `.github/dev-tools-create.md`, `.github/examples/*`, or other `.github/*.md` examples.
 - If a user's instruction conflicts with these rules, follow these rules and ask the user to resolve the conflict.
 
 ## app.yaml and JSON schema enforcement (MANDATORY)
 
-- Do NOT invent or introduce new top-level keys, parameter names, schema shapes, or configuration fields in `app.yaml` or any JSON UI schema (`ui_schemas/*.json`) that are not present in this repository's authoritative docs or examples. Use only keys and structures that appear verbatim in `.github/dev-tools-create-smartapp.md`, `.github/examples/*`, or other `.github/*.md` examples.
+- Do NOT invent or introduce new top-level keys, parameter names, schema shapes, or configuration fields in `app.yaml` or any JSON UI schema (`ui_schemas/*.json`) that are not present in this repository's authoritative docs or examples. Use only keys and structures that appear verbatim in `.github/dev-tools-create.md`, `.github/examples/*`, or other `.github/*.md` examples.
 - Every `app.yaml` or `ui_schemas/*.json` change must be verifiable against an example in the repo. If you cannot find an exact example demonstrating the structure or key, STOP and ask a single clarifying question — do not guess or invent a shape.
 - When generating or editing `app.yaml` or `ui_schemas/parameters.json`, include a one-line reference comment in the PR or the file (if supported) that points to the example/doc demonstrating the required key or block. Example: `# example: .github/examples/event-detection/app.yaml (input stream declaration)`.
 - JSON schema keys and property names must match the `parameters` declared in `app.yaml` exactly (case and spelling). Do not create `min_`/`max_` helper parameters; use the property's `minimum`/`maximum` attributes as shown in examples.
@@ -149,8 +149,8 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
 - "Add data stream `temperature_c`": `app.yaml.data_streams.inputs` + `ui_schemas/*` + optional `defaults.datastream_mapping`.
 - "Add parameter `safety_margin`": `app.yaml.parameters` + `ui_schemas/parameters.json` + `defaults.parameters`.
 - "Auto-accept recommendations": update `Recommendation` creation in `main.py` to read `kelvin_closed_loop` parameter or set `auto_accepted=True`; ensure parameter exists in `app.yaml` and ui_schemas.
- - "Consume timeseries / asset data": consult `.github/dev-tools-consume-timeseries-data.md` and implement handlers in `main.py` using `app.stream_filter(...)`, `app.filter(...)` (queue), or `app.on_asset_input` as appropriate; ensure corresponding inputs are declared in `app.yaml.data_streams.inputs` and use `filters` to limit scope (e.g., `input_equals`, `resource_equals`, `asset_equals`).
- - "Consume Control Changes / App-to-App messages": consult `.github/dev-tools-consume-control-changes.md` and implement callbacks or handlers using `app.on_control_change` and `app.on_control_status`; ensure `control_changes.inputs` / `control_changes.outputs` are declared and KRN resources match between producer and consumer.
+ - "Consume timeseries / asset data": consult `.github/dev-tools-consume-timeseries-data-messages.md` and implement handlers in `main.py` using `app.stream_filter(...)`, `app.filter(...)` (queue), or `app.on_asset_input` as appropriate; ensure corresponding inputs are declared in `app.yaml.data_streams.inputs` and use `filters` to limit scope (e.g., `input_equals`, `resource_equals`, `asset_equals`).
+ - "Consume Control Changes / App-to-App messages": consult `.github/dev-tools-consume-control-changes-messages.md` and implement callbacks or handlers using `app.on_control_change` and `app.on_control_status`; ensure `control_changes.inputs` / `control_changes.outputs` are declared and KRN resources match between producer and consumer.
 
 # Quick verification steps
 
@@ -165,19 +165,21 @@ These rules will be updated as needed. Every generated `main.py` must strictly f
 
 # Offline reference
 
- - The full, self-contained extract of the Kelvin "create" docs (v6.3) is in `.github/dev-tools-create-smartapp.md`. Use it for copyable `app.yaml` and JSON examples and authoritative explanations when internet access is unavailable.
+ - The full, self-contained extract of the Kelvin "create" docs (v6.3) is in `.github/dev-tools-create.md`. Use it for copyable `app.yaml` and JSON examples and authoritative explanations when internet access is unavailable.
+ - Stream decorators Background Tasks : `.github/dev-tools-dev-tools-background-tasks.md` — Methods to have continuous or scheduled code execution.
+ - Callback funtions: `.github/dev-tools-callback-functions.md` — Callback functions available.
  - KRN reference: `.github/dev-tools-krn.md` — offline KRN registry (patterns, examples and regex) for stable resource naming and references.
- - Timeseries consumption patterns: `.github/dev-tools-consume-timeseries-data.md` — offline extract with copyable examples (async generator, queue, callback) and filter usage. Use this when implementing or reviewing message-handling code.
- - Control Changes (produce & consume): `.github/dev-tools-consume-control-changes.md` — offline reference with app.yaml declarations, producer/consumer Python examples, and control-change status handling.
+ - Timeseries consumption patterns: `.github/dev-tools-consume-timeseries-data-messages.md` — offline extract with copyable examples (async generator, queue, callback) and filter usage. Use this when implementing or reviewing message-handling code.
+ - Control Changes (produce & consume): `.github/dev-tools-consume-control-changes-messages.md` — offline reference with app.yaml declarations, producer/consumer Python examples, and control-change status handling.
  - Custom Actions (consume): `.github/dev-tools-consume-custom-actions.md` — offline extract with app.yaml declarations, consumer (executor) Python example and guidance on publishing `CustomActionResult`.
- - Data Quality messages: `.github/dev-tools-consume-data-quality.md` — offline extract with app.yaml data_quality examples, API client queries, and runtime stream-filter examples for realtime processing.
+ - Data Quality messages: `.github/dev-tools-consume-data-quality-messages.md` — offline extract with app.yaml data_quality examples, API client queries, and runtime stream-filter examples for realtime processing.
  - Windowing (tumbling/hopping/rolling): `.github/dev-tools-consume-windowing.md` — offline extract with examples for `tumbling_window`, `hopping_window`, and `rolling_window` usage and notes on alignment and lateness.
- - Produce Timeseries Data (publish): `.github/dev-tools-produce-timeseries-data.md` — offline extract describing `data_streams.outputs` declarations, primitive message types (`Number`, `Boolean`, `String`, objects), and sample `app.publish(...)` usage.
- - Produce Control Changes (publish): `.github/dev-tools-produce-control-changes.md` — offline extract describing `control_changes.outputs`, ControlChange message attributes (payload, expiration_date, retries, timeout, from_value) and example `app.publish(ControlChange(...))` usage.
+ - Produce Timeseries Data (publish): `.github/dev-tools-produce-timeseries-data-messages.md` — offline extract describing `data_streams.outputs` declarations, primitive message types (`Number`, `Boolean`, `String`, objects), and sample `app.publish(...)` usage.
+ - Produce Control Changes (publish): `.github/dev-tools-produce-control-change-messages.md` — offline extract describing `control_changes.outputs`, ControlChange message attributes (payload, expiration_date, retries, timeout, from_value) and example `app.publish(ControlChange(...))` usage.
  - Produce Custom Actions (publish): `.github/dev-tools-produce-custom-actions.md` — offline extract describing `custom_actions.outputs`, CustomAction attributes (resource, type, title, description, payload, expiration_date) and example `app.publish(CustomAction(...))` usage (direct publish or embedded in a Recommendation).
- - Produce Recommendations (publish): `.github/dev-tools-produce-recommendations.md` — offline extract covering Recommendation message structure, embedding `control_changes`, `evidences` (charts/images/markdown/iframes), `metadata`, and sample `app.publish(Recommendation(...))` usage.
- - Produce Data Tags (publish): `.github/dev-tools-produce-data-tags.md` — offline extract describing the `DataTag` message (start_date, end_date, tag_name, resource, contexts) and a sample `app.publish(DataTag(...))` usage.
- - Produce Asset Parameters (publish): `.github/dev-tools-produce-asset-parameters.md` — offline extract describing `AssetParameter` and `AssetParameters` messages, attributes (`resource`, `value`, `comment`), App-to-App usage, and Python examples for publishing single or multiple asset parameter updates.
+ - Produce Recommendations (publish): `.github/dev-tools-produce-recommendation-messages.md` — offline extract covering Recommendation message structure, embedding `control_changes`, `evidences` (charts/images/markdown/iframes), `metadata`, and sample `app.publish(Recommendation(...))` usage.
+ - Produce Data Tags (publish): `.github/dev-tools-produce-data-tag-messages.md` — offline extract describing the `DataTag` message (start_date, end_date, tag_name, resource, contexts) and a sample `app.publish(DataTag(...))` usage.
+ - Produce Asset Parameters (publish): `.github/dev-tools-produce-asset-parameter-messages.md` — offline extract describing `AssetParameter` and `AssetParameters` messages, attributes (`resource`, `value`, `comment`), App-to-App usage, and Python examples for publishing single or multiple asset parameter updates.
  - Asset Properties (reference): `.github/dev-tools-asset-properties.md` — offline extract explaining how Asset Properties are exposed to `KelvinApp` via `app.assets[<asset_name>].properties` and a Python example showing how to read a single property.
  - App Parameters (reference): `.github/dev-tools-app-parameters.md` — offline extract explaining App Parameters declared in `app.yaml` (schema example: `closed_loop`, `speed_decrease_set_point`, `temperature_max_threshold`), how resolved values are exposed at runtime via `app.assets[<asset_name>].parameters[...]`, and Python examples for reading and App-to-App updates.
  - App Configuration (reference): `.github/dev-tools-app-configuration.md` — offline extract describing the `app.app_configuration` mapping exposed on `KelvinApp`, examples for reading simple and nested configuration keys, and a platform API example demonstrating how to post configuration updates to workloads.

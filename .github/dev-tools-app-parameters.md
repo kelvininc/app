@@ -1,69 +1,190 @@
-Title: App Parameters
-Source: https://docs.kelvin.ai/6.3/developer-tools/how-to/develop/app-parameters/
-Fetched: 2025-10-27
+# App Parameters
 
-Detailed Summary :
-App Parameters are configuration values exposed by a Kelvin SmartApp that can be used to control app behaviour per-asset or globally. They are declared in the SmartApp's `app.yaml` under a `parameters` section using a JSON Schema-like structure (type, title, minimum, maximum, required, etc.). The platform exposes resolved App Parameter values to a running SmartApp through the `app.assets[<asset_name>].parameters` mapping (i.e., per-asset parameters). The docs show both the parameter schema example and how to access the resolved parameter value at runtime from within `KelvinApp`.
+You can learn more about [Asset Parameters in the Overview ⟶ Concepts page](../../../overview/concepts/variables/app-parameters.md).
 
-Schema example (from page): the sample parameters schema includes three example parameters:
+## Creating Parameters
 
-- `closed_loop` (boolean) — a toggle labelled "Closed Loop" (required).
-- `speed_decrease_set_point` (number) — labelled "Speed Decrease SetPoint", with minimum 1000 and maximum 3000 (required).
-- `temperature_max_threshold` (number) — labelled "Temperature Max Threshold", with minimum 50 and maximum 100 (required).
+They are initially declared with default values in the Kelvin SmartApp™ `app.yaml` file.
 
-The schema also contains a `required` list referencing these three parameter keys. App authors should declare parameter types, titles and constraints in `app.yaml` so the Kelvin UI and runtime can validate and present configuration controls correctly.
+The variables can then be dynamically changed by Operations for each Asset deployed to the Kelvin SmartApp™. This allows customized values for each Asset.
 
-Access patterns and runtime notes:
-- `app.assets` is a dictionary keyed by asset name. Each asset object exposes a `parameters` mapping for the resolved App Parameter values for that asset.
-- Accessing parameter values should be done after `await app.connect()` so the runtime has loaded configuration and asset mappings.
-- Parameter values must be treated as typed primitives (boolean, number, string) according to the declared schema; perform defensive checks for missing values or mismatched types.
+![](../../../assets/produce-asset-parameters-messages-overview.jpg)
 
-Key examples :
-Python — connect and read a single App Parameter value for an asset:
+The keys used in the `app.yaml` file are;
 
-```python
+* `parameters` defines the name and type of the App Parameter.
+* `ui_schemas` is a link to a JSON file containing all the information about how to display App Parameters in the Kelvin UI.
+* `defaults` / `parameters` define the default values assigned to each Asset when it is first created or when a Kelvin SmartApp™ update introduces a new App Parameter to existing Assets.
+
+Each parameter can be defined by four different `data_types`. Full documentation on the different `data_types` is in the [concept overview page](../../../overview/concepts/data-stream.md#data-type).
+
+In the `app.yaml` file it will look like this;
+
+!!! note
+
+    For a full list of Data Types available, check out the [overview concepts page here](../../../overview/concepts/variables/app-parameters.md#data-type).
+
+```yaml title="app.yaml Example" linenums="1"
+parameters:
+  - name: closed_loop
+    data_type: boolean
+  - name: speed_decrease_set_point
+    data_type: number
+  - name: temperature_max_threshold
+    data_type: number
+
+ui_schemas:
+  parameters: "schemas/parameters.json"
+
+defaults:
+  parameters:
+  closed_loop: false
+  speed_decrease_set_point: 1000
+  temperature_max_threshold: 59
+```
+
+For the `parameters.json` file you can define all the information for the Kelvin UI. This can be the title, type of input required and limitations of the values allowed.
+
+It will look something like this.
+
+```json title="sample ui_schema/parameters.json" linenums="1"
+{
+    "type": "object",
+    "properties": {
+        "closed_loop": {
+            "type": "boolean",
+            "title": "Closed Loop"
+        },
+        "speed_decrease_set_point": {
+            "type": "number",
+            "title": "Speed Decrease SetPoint",
+            "minimum": 1000,
+            "maximum": 3000
+        },
+        "temperature_max_threshold": {
+            "type": "number",
+            "title": "Temperature Max Threshold",
+            "minimum": 50,
+            "maximum": 100
+        }
+    },
+    "required": [
+        "closed_loop",
+        "speed_decrease_set_point",
+        "temperature_max_threshold"
+    ]
+}
+```
+
+Which will be displayed on the Kelvin UI as:
+
+![App Parameters](../../../assets/qs-create-app-asset-parameters.jpg)
+
+## Get Parameter Values
+
+Access a single `App Parameter` value directly from an `assets` Dictionary Object embedded within `KelvinApp`:
+
+```python title="Get Parameter Values Python Example" linenums="1"
 import asyncio
+
 from kelvin.application import KelvinApp
+
 
 async def main() -> None:
     app = KelvinApp()
     await app.connect()
 
-    # Read a per-asset App Parameter
-    temperature_max_threshold = app.assets["my-motor-asset"].parameters["temperature_max_threshold"]
-    print("temperature_max_threshold:", temperature_max_threshold)
+    (...)
 
-if __name__ == '__main__':
-    asyncio.run(main())
+    # Get App Parameter
+    temperature_max_threshold = app.assets["my-motor-asset"].parameters["temperature_max_threshold"]
 ```
 
-Python — (the page also shows how App Parameters can be updated via AssetParameters messages; example producing AssetParameters is included here since the page demonstrates App-to-App parameter update patterns):
+## Updating Parameter Values
 
-```python
+Writing to a single `App Parameter` value directly from an `assets` Dictionary Object embedded within `KelvinApp`:
+
+```python title="Updating Parameter Values Python Example" linenums="1"
 from kelvin.message import AssetParameters, AssetParameter
-from kelvin.krn import KRNAssetParameter, KRNAppVersion
+from kelvin.krn import KRNAppVersion
 
-# publish multiple AssetParameters to update App Parameters for an asset
+(...)
+
 await app.publish(
-    AssetParameters(
-        parameters=[
-            AssetParameter(
-                resource=KRNAssetParameter(asset, "min_treshold"),
-                value=0,
-            ),
-            AssetParameter(
-                resource=KRNAssetParameter(asset, "max_treshold"),
-                value=50,
-            ),
-        ],
-        resource=KRNAppVersion(target_app_name, "1.0.0"),
-    )
+  AssetParameters(
+    parameters=[
+      AssetParameter(resource=KRNAssetParameter(asset, "min_treshold"), value=0), 
+      AssetParameter(resource=KRNAssetParameter(asset, "max_treshold"), value=50)
+    ],
+    resource=KRNAppVersion(target_app_name, "1.0.0")
+  )
 )
 ```
 
-Notes:
-- App Parameters (declared in `app.yaml`) are distinct from Asset Properties (metadata created when assets are provisioned). App Parameters appear under `app.assets[<asset_name>].parameters` at runtime; Asset Properties appear under `app.assets[<asset_name>].properties`.
-- Ensure parameter names and types exactly match those declared in `app.yaml` and any `ui_schemas`—typos will cause runtime lookup failures.
-- Use the `required` property in the parameter schema to force presence and help the UI validate configuration.
-- When reading parameters, guard against missing asset keys or missing parameter keys (KeyError) and consider sensible defaults where appropriate.
-- When publishing App Parameter updates programmatically (App-to-App), remember updates must reach the Kelvin Cloud to persist and propagate — local-only changes won't be visible to other apps.
+## Upgrading Kelvin SmartApps™
+
+When a Kelvin SmartApp™ is upgraded, Kelvin automatically propagates all matching App Parameter values from the previous version to the new version.
+
+For any new App Parameters introduced in the upgraded Kelvin SmartApp™ version, the default values will initially apply to all Assets using the updated version.
+
+![](../../../assets/produce-asset-parameters-messages-upgrade-smartapp.jpg)
+
+## Other Examples
+
+### Basic
+
+In the `app.yaml` file, the minimum you can put is this
+
+```yaml title="app.yaml Example" linenums="1"
+parameters:
+  - name: temperature_max_threshold
+    data_type: number
+```
+
+In the Kelvin SmartApp™ program, it can access the App Parameter values for each Asset like this.
+
+Access a single `App Parameter` value directly from an `assets` Dictionary Object embedded within `KelvinApp`:
+
+```python title="Get Parameter Values Python Example" linenums="1"
+import asyncio
+
+from kelvin.application import KelvinApp
+
+
+async def main() -> None:
+    app = KelvinApp()
+    await app.connect()
+
+    (...)
+
+    # Get App Parameter
+    temperature_max_threshold = app.assets["my-motor-asset"].parameters["temperature_max_threshold"]
+```
+
+!!! info
+
+    `app.assets` will only be available after `app.connect()`
+
+The App Parameter values can be updated by Operations in the Kelvin UI through the parameters section.
+
+![](../../../assets/applications_configuration_overview.png)
+
+
+### SmartLift
+
+A practical example is in the Kelvin SmartApp™ called SmartLift where the Operations can change the values for different App Parameters for each Asset.
+
+![](../../../assets/produce-asset-parameters-messages-example-smartlift.png)
+
+In this example, Operations can set the following values for each Asset;
+
+* Maximum Drawdown rate
+* Minimum Drawdowm rate
+* Maximum Power
+
+They can also assign whether the gauge is faulty.
+
+Finally, they can choose whether to run the Asset in Open or Closed control mode:
+
+* **Open Control Mode**: Any data changes the Kelvin SmartApp intends to make to the Asset data values must first be approved by Operations before being applied to the Asset.
+* **Closed Control Mode**: Any data changes the Kelvin SmartApp intends to make are automatically applied to the Asset without requiring prior approval.

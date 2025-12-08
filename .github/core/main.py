@@ -1,17 +1,16 @@
 import asyncio
-from datetime import timedelta
 
 from kelvin.application import KelvinApp
+from kelvin.logs import logger
 
-async def main() -> None:
-    """
-    Start streaming asset data, monitor motor temperature vs. thresholds,
-    and issue speed-reduction recommendations when necessary.
-    """
-    app = KelvinApp()
-    await app.connect()
+app = KelvinApp()
 
 
+@app.task
+async def continuous_task():
+    """Runs continuously in the background"""
+    while True:
+        logger.debug("My APP is running!")
+        await asyncio.sleep(10)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+app.run()

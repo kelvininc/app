@@ -1,46 +1,176 @@
-Title: App Configuration
-Source: https://docs.kelvin.ai/6.3/developer-tools/how-to/develop/app-configuration/
-Fetched: 2025-10-27
+# Kelvin SmartApps™ Configuration
 
-Detailed Summary :
-App Configuration exposes runtime configuration data for a SmartApp. The page documents how configuration is surfaced to a running `KelvinApp` instance via the `app.app_configuration` mapping and shows examples for nested configuration access and usage. The App Configuration is distinct from App Parameters and Asset Properties — it typically contains runtime configuration settings for the SmartApp itself (for example broker settings, nested configuration objects, or recommendation templates) which are provided via the platform configuration APIs or the Kelvin UI.
+You can learn more about [App Configurations in the Overview ⟶ Concepts page](../../../overview/concepts/variables/app-configurations.md).
 
-Key points from the page:
-- `app.app_configuration` is a mapping-like object available on the `KelvinApp` instance after connection; use `await app.connect()` before accessing it.
-- You can read simple configuration keys with `app.app_configuration["key"]`.
-- Nested configuration objects can be accessed with chained indexing, e.g. `app.app_configuration["nest-example"]["nest1"]`.
-- The page includes an example showing how to read a broker IP from `app.app_configuration["broker-ip"]`.
-- The docs also illustrate platform-side configuration updates via an HTTP API example (curl) that posts a configuration payload to update workload configurations (this is for platform operators or automation and shows a JSON body structure containing `configuration.recommendations` with multiple recommendation templates and setpoint definitions).
+## Creating App Configurations
 
-Key examples :
-Python — connect and get simple App Configuration keys:
+The configuration variable names and values are defined in the Kelvin SmartApp™'s `app.yaml` file as `configuration`.
 
-```python
+Configurations can also be optionally defined in the `ui_schemas` that provides a link to a JSON file containing all the information about how to display Configurations in the Kelvin UI.
+
+!!! note
+
+    Operations will have the option to change these at runtime from the Kelvin UI.
+
+!!! note
+
+    If you use the Data Types, then a full list of Data Types is available at [overview concepts page here](../../../overview/concepts/variables/app-configurations.md#data-type).
+
+```yaml title="app.yaml Example" linenums="1"
+ui_schemas:
+  configuration: "ui_schemas/configuration.json"
+
+defaults:
+  configuration:
+    broker-ip: edge-mqtt-broker
+    broker-port: 1883
+    nest-example:
+      nest1: 25
+      next2: 30
+```
+
+For the `configuration.json` file you can define all the information for the Kelvin UI. This can be the title, type of input required and limitations of the values allowed.
+
+It will look something like this.
+
+```json title="sample ui_schema/configuration.json" linenums="1"
+{
+  "type": "object",
+  "properties": {
+    "broker-ip": {
+      "type": "string",
+      "title": "Broker IP Address"
+    },
+      "broker-port": {
+      "type": "number",
+      "title": "Broker Port Number",
+      "minimum": 0,
+      "maximum": 65535
+    }
+  },
+  "required": ["broker-ip", "broker-port"]
+}
+```
+## Get Configuration Values
+
+This is how to access the global configuration variables in a Kelvin SmartApp™:
+
+```python title="Get Configuration Values Python Example" linenums="1"
 import asyncio
+
 from kelvin.application import KelvinApp
+
 
 async def main() -> None:
     app = KelvinApp()
     await app.connect()
 
-    # Get IP from app configuration
+    (...)
+
+    # Get IP
     ip = app.app_configuration["broker-ip"]
-    print("broker ip:", ip)
+```
+!!! info
 
-    # Get nested configuration value
-    nested_value = app.app_configuration["nest-example"]["nest1"]
-    print("nested value:", nested_value)
+    `app.app_configuration` will only be available after `app.connect()`
 
-if __name__ == '__main__':
-    asyncio.run(main())
+You can also get nested App Configuration values;
+
+```python title="Get Nested Configuration Values Python Example" linenums="1"
+import asyncio
+
+from kelvin.application import KelvinApp
+
+
+async def main() -> None:
+    app = KelvinApp()
+    await app.connect()
+
+    (...)
+
+    # Get IP
+    ip = app.app_configuration["nest-example"]["nest1"]
 ```
 
-Platform API example (curl):
+## Updating Configuration Values
 
-The page includes a curl sample showing how an operator can POST a JSON configuration update to the Kelvin API workloads configurations endpoint. The body demonstrates a `configuration.recommendations` array with recommendation templates (description, setpoint with name and variation_factor, and type). This payload shows the structure expected by the platform when creating or updating app configuration entries.
+Developers and Administrators can update these values through the Kelvin API without needing to re-upload the complete Kelvin SmartApp™ or Kelvin UI.
 
-Notes:
-- Access `app.app_configuration` only after the app has connected — otherwise the mapping may be empty.
-- Treat configuration values as potentially nested dicts/objects; perform existence checks before dereferencing nested keys to avoid KeyError.
-- Use the platform workloads configuration API shown by the curl example when automating configuration updates from CI/CD or operator scripts. Ensure requests are authenticated with a valid Bearer token.
-- App Configuration is intended for app-level runtime configuration; prefer App Parameters for user-editable per-asset parameterization and Asset Properties for asset metadata.
+![](../../../assets/produce-configuration-messages-upgrade-smartapp.jpg)
+
+To update the configuration values dynamically, you use the Kelvin API endpoint `/workloads/{workload_name}/configurations/update`.
+
+!!! note
+
+    The configurations values are applied directly to a workload. This will not affect the values in the App Registry.
+
+    If you have a Kelvin SmartApp™ deployed as many workloads, the updates will only affect the workload you target.
+
+```bash title="API cURL Example" linenums="1"
+    curl -X 'POST' \
+  "https://<url.kelvin.ai>/api/v4{workloads/<workload_name}/configurations/update" \
+  -H "Authorization: Bearer <Your Current Token>" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "configuration": {
+    "recommendations": [
+      {
+        "description": "Water level increasing, higher pump speed will lead water level to return to optimal.",
+        "setpoint": {
+          "name": "speed_sp",
+          "variation_factor": 0.1
+        },
+        "type": "increase_speed"
+      },
+      {
+        "description": "Production gain possible after step test, with higher pump speed",
+        "setpoint": {
+          "name": "speed_sp",
+          "variation_factor": 0.1
+        },
+        "type": "increase_speed"
+      },
+      {
+        "description": "Erratic Torque detected at this speed previously, lower pump speed will reduce vibrations",
+        "setpoint": {
+          "name": "speed_sp",
+          "variation_factor": -0.1
+        },
+        "type": "decrease_speed"
+      },
+      {
+        "description": "Reducing Speed will save energy and keep production levels constant",
+        "setpoint": {
+          "name": "speed_sp",
+          "variation_factor": -0.1
+        },
+        "type": "decrease_speed"
+      },
+      {
+        "description": "Above max Drawdown, parameters stable",
+        "setpoint": null,
+        "type": "no_action"
+      },
+      {
+        "description": "Casing Pressure Event Detected, no changes allowed",
+        "setpoint": null,
+        "type": "no_action"
+      },
+      {
+        "description": "No action - monitoring",
+        "setpoint": null,
+        "type": "no_action"
+      }
+    ]
+  }
+}'
+```
+
+## Upgrading Kelvin SmartApps™
+
+When a Kelvin SmartApp™ is upgraded, Kelvin automatically propagates all matching App Configuration values from the previous version to the new version.
+
+For any new App Configurations introduced in the upgraded Kelvin SmartApp™ version, the default values will initially applied to the Workload.
+
+
