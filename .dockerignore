@@ -7,6 +7,9 @@ Jenkinsfile
 build/
 *.swp
 *.swo
+.github/
+AGENTS.md
+CLAUDE.md
 
 # python
 **/*.pyc
@@ -27,7 +30,13 @@ pip-wheel-metadata/
 venv/
 *.whl
 
+# test config
+config.yaml
+.env
+
 # retain ignore files
 !.*ignore
 !build/datatype/
 !build/app.yaml
+
+
