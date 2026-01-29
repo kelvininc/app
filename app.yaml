@@ -1,78 +1,37 @@
-# yaml-language-server: $schema=https://apps.kelvininc.com/schemas/kelvin/5.0.0/app.json
 spec_version: 5.0.0
 type: app
 
-# ------------------------------------------------------------------------------
-# Basic Information
-# ------------------------------------------------------------------------------
 name: hello-app
 title: Hello App
-description: This is a hello app for demonstration purposes.
+description: A basic Kelvin SmartApp template.
 version: 1.0.0
 
-# ------------------------------------------------------------------------------
-# Application Capabilities
-# ------------------------------------------------------------------------------
 flags:
   enable_runtime_update:
-    configuration: false # Reload application configuration at runtime (without restart).
-    parameters: true # Reload application parameters at runtime (without restart).
-    resources: false # Deploy new assets at runtime (restart required).
-    resource_properties: true # Reload asset properties at runtime (without restart).
+    configuration: false
+    parameters: true
+    resources: false
+    resource_properties: true
 
-# ------------------------------------------------------------------------------
-# Datastream Definitions
-# ------------------------------------------------------------------------------
 data_streams:
-  inputs: # Application consumes motor temperature and speed data.
-    - name: motor_temperature
-      data_type: number
-    - name: motor_speed
-      data_type: number
-
+  inputs: []
   outputs: []
 
-# ------------------------------------------------------------------------------
-# Control Changes Definitions
-# ------------------------------------------------------------------------------
 control_changes:
   inputs: []
-  outputs:
-    - name: motor_speed_set_point # Control output for setting motor speed.
-      data_type: number
+  outputs: []
 
-# ------------------------------------------------------------------------------
-# Custom Actions Definitions
-# ------------------------------------------------------------------------------
 custom_actions:
   inputs: []
   outputs: []
 
-# ------------------------------------------------------------------------------
-# Application-Asset Parameters Definitions
-# ------------------------------------------------------------------------------
-parameters:
-  - name: kelvin_closed_loop # Control mode for the application (Open or Closed Loop).
-    data_type: boolean
-  - name: temperature_max_threshold # Maximum temperature threshold for the application to generate a Control / Recommendation action.
-    data_type: number
+data_quality:
+  inputs: []
+  outputs: []
 
-# ------------------------------------------------------------------------------
-# UI Schemas (Optional)
-# ------------------------------------------------------------------------------
-ui_schemas:
-  # Define paths to UI schemas for optional configuration and parameter management.
-  # configuration: "ui_schemas/configuration.json"
-  parameters: "ui_schemas/parameters.json"
+parameters: []
 
-# ------------------------------------------------------------------------------
-# Default Settings (Runtime/Deployment)
-# ------------------------------------------------------------------------------
 defaults:
-  configuration: {} # Default values for application configuration.
-
-  parameters: # Default values for application parameters.
-    kelvin_closed_loop: false
-    temperature_max_threshold: 59
-
-  system: {} # Default system settings (CPU/Memory Limits, Ports, Volumes, Environment Variables, etc).
+  configuration: {}
+  parameters: {}
+  system: {}
