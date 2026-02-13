@@ -270,7 +270,7 @@ JSON schemas configure the Kelvin UI for parameters and configuration. Always cr
 
 **Core imports**
 ```python
-from api.src.kelvin.api.client import AsyncClient
+from kelvin.api.client import AsyncClient
 from kelvin.application import KelvinApp, filters
 from kelvin.krn import KRNAsset
 from kelvin.krn import KRNAssetDataStream
@@ -594,11 +594,11 @@ app.run()
 - Always add `kelvin_closed_loop` as a boolean parameter (default `false`) when the app makes control changes or custom actions through recommendations.
 
 ```python
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from kelvin.application import KelvinApp
 from kelvin.krn import KRNAsset, KRNAssetDataStream
-from kelvin.message import ControlChange, Recommendation
+from kelvin.message import ControlChange, Recommendation, CustomAction
 
 app = KelvinApp()
 
@@ -616,7 +616,7 @@ async def publish_recommendation():
         ],
         actions=[
             CustomAction(
-                resource=asset,
+                resource=KRNAsset("asset-1"),
                 type="work_order",
                 title="Work Order Maintenance Required",
                 description="Casing pressure exceeds threshold, maintenance needed",
@@ -628,7 +628,7 @@ async def publish_recommendation():
                     "requested_by": "monitoring-app",
                 },
             )
-        ]
+        ],
         expiration_date=timedelta(hours=1),
         auto_accepted=bool(app.assets["asset-1"].parameters.get("kelvin_closed_loop", False)),
     )
