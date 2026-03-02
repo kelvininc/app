@@ -6,435 +6,96 @@ Use this file to implement reads/writes through `app.api` (apps, workloads, cont
 
 ## Table of Contents
 - [When to Use](#when-to-use)
-- [Client Setup](#client-setup)
-- [Pagination](#pagination)
+- [Imports](#imports)
+- [Request Failures](#request-failures)
+- [Timeseries](#timeseries)
+- [Control Changes](#control-changes)
+- [Recommendations](#recommendations)
 - [Apps](#apps)
 - [App Parameters](#app-parameters)
 - [App Workloads](#app-workloads)
-- [Control Changes](#control-changes)
 - [Custom Actions](#custom-actions)
 - [Data Tags](#data-tags)
-- [Recommendations](#recommendations)
-- [Timeseries](#timeseries)
 
-## Client Setup
-
-Use `app.api` inside a SmartApp.
+## Imports
 
 ```python
-client = app.api
+from kelvin.api.base.data_model import AsyncKIterator, KList
+from kelvin.api.base.error import APIError, ResponseError
+from kelvin.api.app.apimodel import enum, manifest, responses, type as type_
+from kelvin.krn import KRN, KRNAssetDataStream, KRNAsset
 ```
 
-Use these KRN examples in filters:
-- Asset: `krn:asset:bp_16`
-- Asset/DataStream: `krn:ad:bp_02/motor_speed`
-- User: `krn:user:person@kelvin.ai`
-- App: `krn:app:motor_speed_control`
-- Workload app version: `krn:wlappv:cluster1/workload1:app1/1.2.0`
+## Request Failures
 
-For KRN construction/parsing, use [krn.md](krn.md).
-
-## Pagination
-
-Use these pagination arguments on most list methods:
-- `pagination_type`: `"limits" | "cursor" | "stream"` (`"stream"` returns all results)
-- `page_size`: `int` (1-10000, default 10000)
-- `page`: `int` for `"limits"`
-- `next` / `previous`: `str` for `"cursor"`
-- `direction`: `"asc" | "desc"`
-- `sort_by`: `list[str]`
-
-Use `pagination_type="stream"` unless you need paged UI behavior.
-
-## Apps
-
-Use these methods:
-- `app.api.apps.list_apps(...)`
-- `app.api.apps.get_app(app_name=...)`
-- `app.api.apps.get_app_version(app_name=..., app_version=...)`
-- `app.api.apps.list_apps_context(data=...)`
+Best practice is to wrap requests in `try/except` and handle API client exceptions.
 
 ```python
-apps = await app.api.apps.list_apps(
-    app_names=["my-app"],
-    app_types=["smartapp"],
-    resources=["krn:asset:bp_16"],
-    search=["motor"],
-    pagination_type="stream",
-)
+logger = logging.getLogger(__name__)
 
-app_details = await app.api.apps.get_app(app_name="my-app")
-app_version = await app.api.apps.get_app_version(app_name="my-app", app_version="1.0.0")
+try:
+    recs = await app.api.recommendation.list_recommendations(
+        data={"resources": ["krn:asset:bp_16"]},
+        sort_by=["created"],  
+        direction="desc",
+    )
+except (APIError, ResponseError) as exc:
+    # API-level failure or unexpected API response payload/shape
+    logger.error("Unexpected recommendation response: %s", exc)
+except Exception as exc:
+    # Network/runtime fallback
+    logger.exception("Unexpected request failure: %s", exc)
+else:
+    if recs:
+        first = recs[0]
+        logger.info("Fetched recommendations, first_id=%s", first.id)
 ```
-
-Response fields (`AppShort`):
-- `name`: str
-- `title`: str
-- `description`: str
-- `category`: str | None
-- `type`: AppType
-- `dashboard_uid`: str | None
-- `latest_version`: str | None
-- `status`: `running` | `stopped` | `updating` | `requires_attention` | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-Response fields (`App`):
-- `name`: str
-- `title`: str
-- `description`: str
-- `category`: str | None
-- `type`: AppType
-- `dashboard_uid`: str | None
-- `latest_version`: str | None
-- `versions`: list[AppVersionOnly] | None
-- `deployment`: Deployment | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-Response fields (`AppVersion`):
-- `name`: str
-- `title`: str
-- `description`: str
-- `category`: str | None
-- `type`: AppType
-- `version`: str
-- `flags`: Flags | None
-- `io`: list[AppIO] | None
-- `dynamic_io`: list[DynamicAppIO] | None
-- `parameters`: list[Parameter] | None
-- `custom_actions`: list[CustomAction] | None
-- `data_quality`: list[CustomDataQuality] | None
-- `schemas`: Schemas | None
-- `defaults`: Defaults | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-Response fields (`AppsResourceContext`):
-- `resource`: str | None
-- `source`: str | None
-
-## App Parameters
-
-Use this method:
-- `app.api.app_parameters.list_app_parameters(data=...)`
-
-```python
-params = await app.api.app_parameters.list_app_parameters(
-    data={
-        "app_names": ["my-app"],
-        "names": ["max_casing_pressure"],
-        "data_types": ["number"],
-        "search": ["pressure"],
-    },
-    pagination_type="stream",
-)
-```
-
-Response fields (`AppParameter`):
-- `app_name`: str | None
-- `title`: str | None
-- `name`: str | None
-- `data_type`: `number` | `string` | `boolean` | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-## App Workloads
-
-Use these methods:
-- `app.api.app_workloads.list_workloads(...)`
-- `app.api.app_workloads.get_workload(workload_name=...)`
-
-```python
-workloads = await app.api.app_workloads.list_workloads(
-    app_names=["my-app"],
-    statuses=["running"],
-    resources="krn:asset:bp_16",
-    pagination_type="stream",
-)
-
-workload = await app.api.app_workloads.get_workload(workload_name="my-workload")
-```
-
-Workload status enums:
-- `status`: `pending_deploy` | `running` | `stopped` | `failed` | ...
-- `download_status`: `pending` | `scheduled` | `processing` | `downloading` | `ready` | `failed`
-
-Response fields (`WorkloadSummary`):
-- `name`: str | None
-- `title`: str | None
-- `app_name`: str | None
-- `app_version`: str | None
-- `app_type`: AppType | None
-- `cluster_name`: str | None
-- `node_name`: str | None
-- `download_status`: `pending` | `scheduled` | `processing` | `downloading` | `ready` | `failed` | None
-- `download_error`: str | None
-- `status`: WorkloadStatus | None
-- `staged`: WorkloadStagedSummary | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-Response fields (`Workload`):
-- `name`: str | None
-- `title`: str | None
-- `app_name`: str | None
-- `app_version`: str | None
-- `app_type`: AppType | None
-- `cluster_name`: str | None
-- `node_name`: str | None
-- `download_status`: WorkloadDownloadStatus | None
-- `download_error`: str | None
-- `status`: WorkloadStatus | None
-- `runtime`: WorkloadRuntime | None
-- `system`: System | None
-- `staged`: WorkloadStaged | None
-- `created_at`: datetime | None
-- `created_by`: str | None
-- `updated_at`: datetime | None
-- `updated_by`: str | None
-
-## Control Changes
-
-Use these methods:
-- `app.api.control_change.get_control_change_last(data=...)`
-- `app.api.control_change.get_control_change_range(data=...)`
-- `app.api.control_change.list_control_changes(data=...)`
-- `app.api.control_change.get_control_change(control_change_id=...)`
-
-```python
-last_cc = await app.api.control_change.get_control_change_last(
-    data={
-        "resources": ["krn:ad:bp_02/motor_speed_set_point"],
-        "sources": ["krn:app:motor_speed_control"],
-        "states": ["applied", "sent"],
-    },
-    pagination_type="stream",
-)
-
-cc_range = await app.api.control_change.get_control_change_range(
-    data={
-        "start_date": "2024-01-01T00:00:00Z",
-        "end_date": "2024-12-31T00:00:00Z",
-        "resources": ["krn:ad:bp_02/motor_speed_set_point"],
-    },
-    pagination_type="stream",
-)
-```
-
-Control change states:
-- `pending` | `ready` | `sent` | `processed` | `applied` | `failed` | `rejected`
-
-Response fields (`ControlChangeGet`):
-- `id`: UUID
-- `resource`: str
-- `payload`: int | float | str | bool | dict[str, Any] | None
-- `created`: datetime | None
-- `created_by`: str | None
-- `created_type`: str | None
-- `trace_id`: str | None
-- `last_message`: str | None
-- `last_state`: `pending` | `ready` | `sent` | `processed` | `applied` | `failed` | `rejected` | None
-- `retries`: int | None
-- `timeout`: int | None
-- `expiration_date`: datetime | None
-- `from`: ControlChangeFrom | None
-- `reported`: ControlChangeReported | None
-- `status_log`: list[ControlChangeGetStatus] | None
-- `timestamp`: datetime | None
-- `updated`: datetime | None
-
-## Custom Actions
-
-Use these methods:
-- `app.api.custom_actions.list_custom_actions(data=...)`
-- `app.api.custom_actions.get_custom_action(action_id=...)`
-
-```python
-actions = await app.api.custom_actions.list_custom_actions(
-    data={
-        "resources": ["krn:asset:bp_16"],
-        "states": ["pending", "completed"],
-        "types": ["email"],
-    },
-    pagination_type="stream",
-)
-
-action = await app.api.custom_actions.get_custom_action(
-    action_id="0002bc79-b42f-461b-95d6-cf0a28ba87aa"
-)
-```
-
-Custom action states:
-- `pending` | `ready` | `in_progress` | `completed` | `cancelled` | `failed`
-
-Response fields (`CustomAction`):
-- `id`: UUID
-- `type`: str
-- `type_title`: str | None
-- `resource`: str
-- `title`: str
-- `description`: str | None
-- `expiration_date`: datetime
-- `payload`: dict[str, Any] | None
-- `trace_id`: str | None
-- `state`: `pending` | `ready` | `in_progress` | `completed` | `cancelled` | `failed`
-- `failure_reason`: str | None
-- `message`: str | None
-- `status_logs`: list[StatusLog] | None
-- `timestamp`: datetime | None
-- `created`: datetime
-- `created_by`: str
-- `updated`: datetime
-- `updated_by`: str
-
-## Data Tags
-
-Use these methods:
-- `app.api.data_tag.list_data_tag(data=...)`
-- `app.api.data_tag.get_data_tag(datatag_id=...)`
-
-```python
-tags = await app.api.data_tag.list_data_tag(
-    data={
-        "tag_names": ["Breakdown", "Valve Change"],
-        "resources": ["krn:asset:bp_16"],
-        "start_date": "2024-01-01T00:00:00Z",
-        "end_date": "2024-12-31T00:00:00Z",
-    },
-    pagination_type="stream",
-)
-
-tag = await app.api.data_tag.get_data_tag(
-    datatag_id="0002bc79-b42f-461b-95d6-cf0a28ba87aa"
-)
-```
-
-Response fields (`DataTag`):
-- `id`: UUID | None
-- `start_date`: datetime | None
-- `end_date`: datetime | None
-- `tag_name`: str | None
-- `resource`: str | None
-- `source`: str | None
-- `description`: str | None
-- `contexts`: list[str] | None
-- `created`: datetime | None
-- `updated`: datetime | None
-
-## Recommendations
-
-Use these methods:
-- `app.api.recommendation.get_recommendation_last(data=...)`
-- `app.api.recommendation.get_recommendation_range(data=...)`
-- `app.api.recommendation.list_recommendations(data=...)`
-- `app.api.recommendation.get_recommendation(recommendation_id=...)`
-
-```python
-last_recs = await app.api.recommendation.get_recommendation_last(
-    data={
-        "resources": ["krn:asset:bp_16"],
-        "states": ["pending", "accepted"],
-        "types": ["decrease_speed"],
-    },
-    pagination_type="stream",
-)
-
-recs = await app.api.recommendation.list_recommendations(
-    data={
-        "resources": ["krn:asset:bp_16"],
-        "states": ["pending", "accepted"],
-    },
-    pagination_type="stream",
-)
-```
-
-Recommendation states:
-- `pending` | `accepted` | `auto_accepted` | `rejected` | `expired`
-
-Response fields (`Recommendation`):
-- `id`: UUID | None
-- `type`: str
-- `type_title`: str | None
-- `resource`: str
-- `description`: str | None
-- `confidence`: int | None
-- `custom_identifier`: str | None
-- `expiration_date`: datetime | None
-- `metadata`: dict[str, Any] | None
-- `resource_parameters`: dict[str, Any] | None
-- `trace_id`: str | None
-- `evidences`: list[RecommendationEvidence] | None
-- `actions`: RecommendationActions | None
-- `message`: str | None
-- `state`: `pending` | `accepted` | `auto_accepted` | `rejected` | `expired` | None
-- `created`: datetime | None
-- `source`: str | None
-- `updated`: datetime | None
-- `updated_by`: str | None
 
 ## Timeseries
 
-Use Timeseries API for historical data queries.
-
-Apply these rules:
-- Do not declare Timeseries-only streams in `data_streams.inputs`.
-- Keep real-time logic in stream handlers/windows.
-- Use `get_timeseries_last` for current snapshot and `get_timeseries_range` for time intervals.
+### Get Last Point
 
 ```python
-last = await app.api.timeseries.get_timeseries_last(
-    data={
-        "selectors": [
-            {"resource": "krn:ad:bp_02/motor_speed", "fields": ["value", "quality"]}
-        ]
-    }
+last: list[responses.TimeseriesLastGet] = await app.apitimeseries.get_timeseries_last(
+    data={"selectors": [{"resource": "krn:ad:bp_02/motor_speed"}]}
 )
 
-series = await app.api.timeseries.get_timeseries_range(
+last_point: responses.TimeseriesLastGet = last[0]
+
+# Fields
+resource: KRNAssetDataStream = last_point.resource   # krn:ad:bp_02/motor_speed
+source: KRN | None = last_point.source               # krn:wlappv:my-cluster/bp-opcua-bridge:kelvin-bridge-opcua-client/3.3.3
+data_type: str | None = last_point.data_type         # data;pt=number
+last_value: int | float | str | bool | dict[str, Any] | None = last_point.last_value  # 1945.2321735985631
+last_timestamp: datetime | None = last_point.last_timestamp  # 2023-12-19 22:48:09.129360+00:00
+```
+
+### Get Range
+
+```python
+series: AsyncIterator[responses.TimeseriesRangeGet] = await app.apitimeseries.get_timeseries_range(
     data={
-        "start_time": "2024-01-01T00:00:00Z",
-        "end_time": "2024-12-31T00:00:00Z",
-        "selectors": [{"resource": "krn:ad:bp_02/motor_speed", "fields": ["value"]}],
-        "agg": "mean",
+        "start_time": "2026-01-01T00:00:00Z",
+        "end_time": "2026-01-02T00:00:00Z",
+        "selectors": [{"resource": "krn:ad:pcp_01/casing_pressure"}],
+        "agg": "mean", 
         "time_bucket": "1h",
         "fill": "none",
         "order": "ASC",
         "group_by_selector": True,
     }
 )
+
+# Fields
+async for point in series:
+    resource: KRNAssetDataStream | None = point.resource   # krn:ad:pcp_01/casing_pressure
+    timestamp: datetime | None = point.timestamp           # 2026-01-01 00:00:00+00:00
+    payload: int | float | str | bool | dict[str, Any] | None = point.payload  # 59.933886464416695
 ```
-
-Response fields (`TimeseriesLastGet`):
-- `resource`: str | None
-- `source`: str | None
-- `data_type`: str | None
-- `fields`: list[str] | None
-- `last_value`: int | float | str | bool | dict[str, Any] | None
-- `last_timestamp`: datetime | None
-- `created`: datetime | None
-- `updated`: datetime | None
-
-Response fields (`TimeseriesRangeGet`):
-- `resource`: str | None
-- `timestamp`: datetime | None
-- `payload`: int | float | str | bool | dict[str, Any] | None
 
 DataFrame conversion pattern:
 
 ```python
-from datetime import datetime, timedelta
-
 result = await app.api.timeseries.get_timeseries_range(
     data={
         "start_time": datetime.now().astimezone() - timedelta(days=7),
@@ -451,6 +112,379 @@ result = await app.api.timeseries.get_timeseries_range(
 )
 
 df = result.to_df(datastreams_as_column=True)
+df.head(5)
+#     timestamp                         asset_name   gas_rate     casing_pressure
+# 0   2025-12-02 12:04:43.811316+00:00  asset-1     424.623553   NaN
+# 1   2025-12-02 12:04:58.839218+00:00  asset-1     NaN          28.282359
 ```
 
 For window-first real-time patterns, use [data-processing.md](data-processing.md).
+
+## Control Changes
+
+### Get Last Control Change
+
+```python
+# sort_by: id, resource, last_state, created, updated, timestamp
+last_cc: list[responses.ControlChangeGet] = await app.apicontrol_change.get_control_change_last(
+    data={"resources": ["krn:ad:pcp_03/speed_sp"], "states": ["applied", "sent"]},
+    sort_by=["timestamp"],
+    direction="desc",
+)
+
+cc: responses.ControlChangeGet = last_cc[0]
+
+# Fields
+id_: UUID = cc.id                                  # d16ce3c3-1082-411b-b04b-38034839d866
+resource: KRNAssetDataStream = cc.resource         # krn:ad:pcp_03/speed_sp
+payload: int | float | str | bool | dict[str, Any] | None = cc.payload  # 18.000000000000004
+last_state: enum.ControlChangeState | None = cc.last_state  # applied
+timestamp: datetime | None = cc.timestamp          # 2025-07-02 19:30:55.221910+00:00
+```
+
+### Get Control Change Range
+
+```python
+# sort_by: id, resource, last_state, created, updated, timestamp
+cc_range: list[responses.ControlChangeGet] = await app.apicontrol_change.get_control_change_range(
+    data={
+        "start_date": "2026-01-01T00:00:00Z",
+        "end_date": "2026-01-31T00:00:00Z",
+        "resources": ["krn:ad:pcp_01/speed_sp"],
+    },
+    sort_by=["timestamp"],
+    direction="desc",
+)
+
+cc: responses.ControlChangeGet = cc_range[0]
+
+# Fields
+id_: UUID = cc.id                                  # 041eb8ce-eabb-418f-99ed-aded6f1b2e1e
+resource: KRNAssetDataStream = cc.resource         # krn:ad:pcp_01/speed_sp
+payload: int | float | str | bool | dict[str, Any] | None = cc.payload  # 49.5
+last_state: enum.ControlChangeState | None = cc.last_state  # applied
+timestamp: datetime | None = cc.timestamp          # 2026-01-29 19:19:18.083917+00:00
+```
+
+### List Control Changes
+
+```python
+# sort_by: id, resource, last_state, created, updated, timestamp
+control_changes: list[responses.ControlChangeGet] = await app.apicontrol_change.list_control_changes(
+    data={"resources": ["krn:ad:pcp_01/speed_sp"], "states": ["sent", "applied"]},
+    sort_by=["timestamp"],
+    direction="desc",
+)
+
+cc: responses.ControlChangeGet = control_changes[0]
+
+# Fields
+id_: UUID = cc.id                                  # b907e8a0-61ea-4203-942c-53e40000fba3
+resource: KRNAssetDataStream = cc.resource         # krn:ad:pcp_01/speed_sp
+payload: int | float | str | bool | dict[str, Any] | None = cc.payload  # 70
+created_by: str | None = cc.created_by             # example@kelvininc.com
+last_state: enum.ControlChangeState | None = cc.last_state  # applied
+```
+
+### Get Control Change
+
+```python
+control_change: responses.ControlChangeGet = await app.apicontrol_change.get_control_change(
+    control_change_id="b907e8a0-61ea-4203-942c-53e40000fba3"
+)
+
+# Fields
+id_: UUID = control_change.id                           # b907e8a0-61ea-4203-942c-53e40000fba3
+resource: KRNAssetDataStream = control_change.resource  # krn:ad:pcp_01/speed_sp
+payload: int | float | str | bool | dict[str, Any] | None = control_change.payload  # 70
+last_state: enum.ControlChangeState | None = control_change.last_state  # applied
+trace_id: str | None = control_change.trace_id     # b907e8a0-61ea-4203-942c-53e40000fba3
+```
+
+## Recommendations
+
+### Get Last Recommendation
+
+```python
+# sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
+last_recs: list[type_.Recommendation] = await app.apirecommendation.get_recommendation_last(
+    data={"resources": ["krn:asset:pcp_01"], "states": ["pending", "accepted"]},
+    sort_by=["created"],
+    direction="desc",
+)
+
+rec: type_.Recommendation = last_recs[0]
+
+# Fields
+id_: UUID | None = rec.id                          # 019cad62-f803-7cbb-8c59-a4bc7075cd08
+rec_type: str = rec.type                           # no_action
+type_title: str | None = rec.type_title            # No Action
+resource: KRNAsset = rec.resource                  # krn:asset:pcp_01
+description: str | None = rec.description          # Above max Drawdown, parameters stable
+state: enum.RecommendationState | None = rec.state # pending
+```
+
+### List Recommendations
+
+```python
+# sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
+recs: list[type_.Recommendation] = await app.apirecommendation.list_recommendations(
+    data={"resources": ["krn:asset:pcp_01"], "states": ["pending", "accepted"]},
+    sort_by=["created"],
+    direction="desc",
+)
+
+rec: type_.Recommendation = recs[0]
+
+# Fields
+id_: UUID | None = rec.id                          # 019cad62-f803-7cbb-8c59-a4bc7075cd08
+rec_type: str = rec.type                           # no_action
+type_title: str | None = rec.type_title            # No Action
+resource: KRNAsset = rec.resource                  # krn:asset:pcp_01
+state: enum.RecommendationState | None = rec.state # pending
+created: datetime | None = rec.created             # 2026-03-02 07:11:10.344599+00:00
+```
+
+### Get Recommendation Range
+
+```python
+# sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
+rec_range: list[type_.Recommendation] = await app.apirecommendation.get_recommendation_range(
+    data={
+        "start_date": "2026-01-01T00:00:00Z",
+        "end_date": "2026-01-31T00:00:00Z",
+        "resources": ["krn:asset:pcp_01"],
+    },
+    sort_by=["created"],
+    direction="desc",
+)
+
+rec: type_.Recommendation = rec_range[0]
+
+# Fields
+id_: UUID | None = rec.id                          # 019c1048-cbac-7068-aec1-ae41290d4842
+rec_type: str = rec.type                           # no_action
+resource: KRNAsset = rec.resource                  # krn:asset:pcp_01
+description: str | None = rec.description          # No action - monitoring
+state: enum.RecommendationState | None = rec.state # expired
+expiration_date: datetime | None = rec.expiration_date  # 2026-01-31 03:02:10.741612+00:00
+```
+
+### Get Recommendation
+
+```python
+rec: responses.RecommendationGet = await app.apirecommendation.get_recommendation(
+    recommendation_id="019c1048-cbac-7068-aec1-ae41290d4842"
+)
+
+# Fields
+id_: UUID | None = rec.id                          # 019c1048-cbac-7068-aec1-ae41290d4842
+rec_type: str = rec.type                           # no_action
+resource: KRNAsset = rec.resource                  # krn:asset:pcp_01
+state: enum.RecommendationState | None = rec.state # expired
+updated_by: KRN | None = rec.updated_by            # krn:job:expiration-worker/1771428233846
+```
+
+## Apps
+
+### List Apps
+
+```python
+# sort_by: name, title, type, latest_version, created_at, created_by, updated_at, updated_by
+apps: list[type_.AppShort] = await app.apiapps.list_apps(
+    app_types=["app"],
+    sort_by=["updated_at"],
+    direction="desc",
+)
+
+app_short: type_.AppShort = apps[0]
+
+# Fields
+name: str = app_short.name                         # esp-optimization
+title: str = app_short.title                       # ESP Optimization
+app_type: enum.AppType = app_short.type            # app
+latest_version: str | None = app_short.latest_version  # 1.0.06112307
+status: enum.AppStatus | None = app_short.status   # running
+```
+
+### Get App
+
+```python
+app_obj: responses.AppGet = await app.apiapps.get_app(app_name="esp-optimization")
+
+# Fields
+name: str = app_obj.name                           # esp-optimization
+title: str = app_obj.title                         # ESP Optimization
+latest_version: str | None = app_obj.latest_version  # 1.0.06112307
+deployment: responses.Deployment | None = app_obj.deployment  # status='running' resource_count=ResourceCount(total=66, running=66)
+updated_by: KRN | None = app_obj.updated_by        # krn:user:example@kelvininc.com
+```
+
+### Get App Version
+
+```python
+app_version: responses.AppVersionGet = await app.apiapps.get_app_version(
+    app_name="esp-optimization",
+    app_version="1.0.06112307",
+)
+
+# Fields
+name: str = app_version.name                       # esp-optimization
+version: str = app_version.version                 # 1.0.06112307
+flags: manifest.Flags | None = app_version.flags   # spec_version='5.0.0' legacy_data_types=False legacy_extras=None gateway_mode=None enable_runtime_update=None deployment=None resources_required=True
+io_first: manifest.AppIO | None = app_version.io[0] if app_version.io else None  # AppIO(name='casing_pressure', data_type='number', way='input', storage='node-and-cloud', unit=None)
+param_first: manifest.Parameter | None = app_version.parameters[0] if app_version.parameters else None  # Parameter(name='kelvin_control_mode', title='kelvin_control_mode', data_type='string', default='Open')
+```
+
+### List App Context
+
+```python
+# sort_by: resource, source
+contexts: list[type_.AppsResourceContext] = await app.apiapps.list_apps_context(
+    data={"resources": ["krn:asset:pcp_01"]},
+    sort_by=["resource"],
+    direction="asc",
+)
+
+context: type_.AppsResourceContext = contexts[0]
+
+# Fields
+resource: KRNAssetDataStream | None = context.resource  # krn:ad:pcp_01/casing_pressure
+source: KRN | None = context.source                     # krn:wlappv:my-cluster/pcp-opcua:kelvin-bridge-opcua-client/3.4.7
+```
+
+## App Parameters
+
+### List App Parameters
+
+```python
+# sort_by: name, title, app_name, data_type, created_at, created_by, updated_at, updated_by
+params: list[type_.AppParameter] = await app.apiapp_parameters.list_app_parameters(
+    data={"names": ["kelvin_closed_loop"]},
+    sort_by=["name"],
+    direction="asc",
+)
+
+param: type_.AppParameter = params[0]
+
+# Fields
+app_name: str | None = param.app_name              # compressor-monitor
+name: str | None = param.name                      # kelvin_closed_loop
+data_type: enum.ParameterType | None = param.data_type  # boolean
+updated_at: datetime | None = param.updated_at     # 2026-02-05 04:58:54.133504+00:00
+```
+
+## App Workloads
+
+### List Workloads
+
+```python
+# sort_by: name, title, app_name, app_version, cluster_name, node_name, status_last_seen, status_state, created_at, created_by, updated_at, updated_by
+workloads: list[type_.WorkloadSummary] = await app.apiapp_workloads.list_workloads(
+    app_names=["esp-optimization"],
+    statuses=["running"],
+    sort_by=["updated_at"],
+    direction="desc",
+)
+
+workload_summary: type_.WorkloadSummary = workloads[0]
+
+# Fields
+name: str | None = workload_summary.name           # esp-optimization-dgocvxnoqdgm0
+app_name: str | None = workload_summary.app_name   # esp-optimization
+app_version: str | None = workload_summary.app_version  # 1.0.06112307
+download_status: enum.WorkloadDownloadStatus | None = workload_summary.download_status  # pending
+status: type_.WorkloadStatus | None = workload_summary.status  # last_seen=datetime.datetime(2026, 3, 2, 11, 5, 47, 482840, tzinfo=TzInfo(UTC)) message='Running' state='running' warnings=None
+```
+
+### Get Workload
+
+```python
+workload: responses.WorkloadGet = await app.apiapp_workloads.get_workload(
+    workload_name="esp-optimization-dgocvxnoqdgm0"
+)
+
+# Fields
+name: str | None = workload.name                   # esp-optimization-dgocvxnoqdgm0
+app_name: str | None = workload.app_name           # esp-optimization
+app_version: str | None = workload.app_version     # 1.0.06112307
+cluster_name: str | None = workload.cluster_name   # my-cluster
+node_name: str | None = workload.node_name         # my-cluster
+download_status: enum.WorkloadDownloadStatus | None = workload.download_status  # pending
+status: type_.WorkloadStatus | None = workload.status  # last_seen=datetime.datetime(2026, 3, 2, 11, 5, 58, 380615, tzinfo=TzInfo(UTC)) message='Running' state='running' warnings=None
+```
+
+## Custom Actions
+
+### List Custom Actions
+
+```python
+# sort_by: id, title, resource, description, expiration_date, timestamp, trace_id, type, state, created, created_by, updated, updated_by
+actions: list[type_.CustomAction] = await app.apicustom_actions.list_custom_actions(
+    data={"states": ["pending", "completed"]},
+    sort_by=["created"],
+    direction="desc",
+)
+
+action: type_.CustomAction = actions[0]
+
+# Fields
+id_: UUID = action.id                              # c007e19d-3a71-406b-aaa1-372c58a85760
+action_type: str = action.type                     # Slack Message
+resource: KRNAsset = action.resource               # krn:asset:pcp_01
+state: enum.CustomActionState = action.state       # completed
+message: str | None = action.message               # Slack message sent
+```
+
+### Get Custom Action
+
+```python
+action: responses.CustomActionGet = await app.apicustom_actions.get_custom_action(
+    action_id="c007e19d-3a71-406b-aaa1-372c58a85760"
+)
+
+# Fields
+id_: UUID = action.id                              # c007e19d-3a71-406b-aaa1-372c58a85760
+action_type: str = action.type                     # Slack Message
+payload: dict[str, Any] | None = action.payload    # {'channel': 'sales-demo-notifications', 'message': {'text': 'Torque issues detected on well pcp_01'}}
+state: enum.CustomActionState = action.state       # completed
+updated_by: KRN = action.updated_by                # krn:wl:my-cluster/slack-message-sender
+```
+
+## Data Tags
+
+### List Data Tags
+
+```python
+# sort_by: id, start_date, end_date, tag_name, resource, source, description, created, updated
+tags: list[type_.DataTag] = await app.apidata_tag.list_data_tag(
+    data={"start_date": "2026-01-01T00:00:00Z", "end_date": "2026-01-31T00:00:00Z"},
+    sort_by=["start_date"],
+    direction="desc",
+)
+
+tag: type_.DataTag = tags[0]
+
+# Fields
+id_: UUID | None = tag.id                          # a4df8bb6-001d-48b0-8d6c-5b84ca8e5e46
+tag_name: str | None = tag.tag_name                # Plunger Arrival
+resource: KRNAsset | None = tag.resource           # krn:asset:b6b16470-b95a-49e6-8aa0-879bf0b1a0c4
+start_date: datetime | None = tag.start_date       # 2026-01-27 21:09:20.184000+00:00
+end_date: datetime | None = tag.end_date           # 2026-01-29 17:02:27.395000+00:00
+```
+
+### Get Data Tag
+
+
+```python
+tag: responses.DataTagGet = await app.apidata_tag.get_data_tag(
+    datatag_id="a4df8bb6-001d-48b0-8d6c-5b84ca8e5e46"
+)
+
+# Fields
+id_: UUID | None = tag.id                          # a4df8bb6-001d-48b0-8d6c-5b84ca8e5e46
+tag_name: str | None = tag.tag_name                # Plunger Arrival
+resource: KRNAsset | None = tag.resource           # krn:asset:b6b16470-b95a-49e6-8aa0-879bf0b1a0c4
+source: KRN | None = tag.source                    # krn:user:example@kelvininc.com
+contexts: list[KRN] | None = tag.contexts          # []
+```

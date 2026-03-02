@@ -4,25 +4,26 @@
 This repository is a Kelvin SmartApp template (`app.yaml` + Python runtime code).
 
 ## Project Tree Structure
+This section shows the main files and folders only (not `.git` or tool internals).
+
 ```text
 .
-├── .devcontainer/
-│   ├── Dockerfile
-│   └── devcontainer.json
-├── .skills/
-│   └── kelvin-sdk/
 ├── AGENTS.md
 ├── CLAUDE.md -> AGENTS.md
-├── Dockerfile
 ├── README.md
 ├── app.yaml
-├── logo.png
 ├── main.py
 ├── requirements.txt
-└── ui_schemas/
+├── ui_schemas/
     ├── configuration.json
     └── parameters.json
+└── .skills/
+    └── kelvin-sdk/
 ```
+
+Tree maintenance note:
+- Keep this tree concise and update it when project structure changes.
+- Include only files/folders relevant to SmartApp development and agent guidance.
 
 ## Skill Requirement
 - Use the `kelvin-sdk` skill for any task that implements, reviews, debugs, refactors, or migrates SmartApp behavior.
@@ -34,6 +35,13 @@ This repository is a Kelvin SmartApp template (`app.yaml` + Python runtime code)
 
 Reference skill file:
 - `.skills/kelvin-sdk/SKILL.md`
+
+## Kelvin Authentication
+Login to your Kelvin instance before upload:
+
+```bash
+kelvin auth login <instance>.kelvin.ai
+```
 
 ## Kelvin SmartApp Build
 Build the app package from the project root:
