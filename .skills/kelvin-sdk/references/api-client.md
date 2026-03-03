@@ -22,7 +22,7 @@ Use this file to implement reads/writes through `app.api` (apps, workloads, cont
 ```python
 from kelvin.api.base.data_model import AsyncKIterator, KList
 from kelvin.api.base.error import APIError, ResponseError
-from kelvin.api.app.apimodel import enum, manifest, responses, type as type_
+from kelvin.api.client.model import enum, manifest, responses, type as type_
 from kelvin.krn import KRN, KRNAssetDataStream, KRNAsset
 ```
 
@@ -56,7 +56,7 @@ else:
 ### Get Last Point
 
 ```python
-last: list[responses.TimeseriesLastGet] = await app.apitimeseries.get_timeseries_last(
+last: list[responses.TimeseriesLastGet] = await app.api.timeseries.get_timeseries_last(
     data={"selectors": [{"resource": "krn:ad:bp_02/motor_speed"}]}
 )
 
@@ -73,7 +73,7 @@ last_timestamp: datetime | None = last_point.last_timestamp  # 2023-12-19 22:48:
 ### Get Range
 
 ```python
-series: AsyncIterator[responses.TimeseriesRangeGet] = await app.apitimeseries.get_timeseries_range(
+series: AsyncIterator[responses.TimeseriesRangeGet] = await app.api.timeseries.get_timeseries_range(
     data={
         "start_time": "2026-01-01T00:00:00Z",
         "end_time": "2026-01-02T00:00:00Z",
@@ -126,7 +126,7 @@ For window-first real-time patterns, use [data-processing.md](data-processing.md
 
 ```python
 # sort_by: id, resource, last_state, created, updated, timestamp
-last_cc: list[responses.ControlChangeGet] = await app.apicontrol_change.get_control_change_last(
+last_cc: list[responses.ControlChangeGet] = await app.api.control_change.get_control_change_last(
     data={"resources": ["krn:ad:pcp_03/speed_sp"], "states": ["applied", "sent"]},
     sort_by=["timestamp"],
     direction="desc",
@@ -146,7 +146,7 @@ timestamp: datetime | None = cc.timestamp          # 2025-07-02 19:30:55.221910+
 
 ```python
 # sort_by: id, resource, last_state, created, updated, timestamp
-cc_range: list[responses.ControlChangeGet] = await app.apicontrol_change.get_control_change_range(
+cc_range: list[responses.ControlChangeGet] = await app.api.control_change.get_control_change_range(
     data={
         "start_date": "2026-01-01T00:00:00Z",
         "end_date": "2026-01-31T00:00:00Z",
@@ -170,7 +170,7 @@ timestamp: datetime | None = cc.timestamp          # 2026-01-29 19:19:18.083917+
 
 ```python
 # sort_by: id, resource, last_state, created, updated, timestamp
-control_changes: list[responses.ControlChangeGet] = await app.apicontrol_change.list_control_changes(
+control_changes: list[responses.ControlChangeGet] = await app.api.control_change.list_control_changes(
     data={"resources": ["krn:ad:pcp_01/speed_sp"], "states": ["sent", "applied"]},
     sort_by=["timestamp"],
     direction="desc",
@@ -189,7 +189,7 @@ last_state: enum.ControlChangeState | None = cc.last_state  # applied
 ### Get Control Change
 
 ```python
-control_change: responses.ControlChangeGet = await app.apicontrol_change.get_control_change(
+control_change: responses.ControlChangeGet = await app.api.control_change.get_control_change(
     control_change_id="b907e8a0-61ea-4203-942c-53e40000fba3"
 )
 
@@ -207,7 +207,7 @@ trace_id: str | None = control_change.trace_id     # b907e8a0-61ea-4203-942c-53e
 
 ```python
 # sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
-last_recs: list[type_.Recommendation] = await app.apirecommendation.get_recommendation_last(
+last_recs: list[type_.Recommendation] = await app.api.recommendation.get_recommendation_last(
     data={"resources": ["krn:asset:pcp_01"], "states": ["pending", "accepted"]},
     sort_by=["created"],
     direction="desc",
@@ -228,7 +228,7 @@ state: enum.RecommendationState | None = rec.state # pending
 
 ```python
 # sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
-recs: list[type_.Recommendation] = await app.apirecommendation.list_recommendations(
+recs: list[type_.Recommendation] = await app.api.recommendation.list_recommendations(
     data={"resources": ["krn:asset:pcp_01"], "states": ["pending", "accepted"]},
     sort_by=["created"],
     direction="desc",
@@ -249,7 +249,7 @@ created: datetime | None = rec.created             # 2026-03-02 07:11:10.344599+
 
 ```python
 # sort_by: id, custom_identifier, resource, description, confidence, expiration_date, source, state, type, created, updated, updated_by
-rec_range: list[type_.Recommendation] = await app.apirecommendation.get_recommendation_range(
+rec_range: list[type_.Recommendation] = await app.api.recommendation.get_recommendation_range(
     data={
         "start_date": "2026-01-01T00:00:00Z",
         "end_date": "2026-01-31T00:00:00Z",
@@ -273,7 +273,7 @@ expiration_date: datetime | None = rec.expiration_date  # 2026-01-31 03:02:10.74
 ### Get Recommendation
 
 ```python
-rec: responses.RecommendationGet = await app.apirecommendation.get_recommendation(
+rec: responses.RecommendationGet = await app.api.recommendation.get_recommendation(
     recommendation_id="019c1048-cbac-7068-aec1-ae41290d4842"
 )
 
@@ -291,7 +291,7 @@ updated_by: KRN | None = rec.updated_by            # krn:job:expiration-worker/1
 
 ```python
 # sort_by: name, title, type, latest_version, created_at, created_by, updated_at, updated_by
-apps: list[type_.AppShort] = await app.apiapps.list_apps(
+apps: list[type_.AppShort] = await app.api.apps.list_apps(
     app_types=["app"],
     sort_by=["updated_at"],
     direction="desc",
@@ -310,7 +310,7 @@ status: enum.AppStatus | None = app_short.status   # running
 ### Get App
 
 ```python
-app_obj: responses.AppGet = await app.apiapps.get_app(app_name="esp-optimization")
+app_obj: responses.AppGet = await app.api.apps.get_app(app_name="esp-optimization")
 
 # Fields
 name: str = app_obj.name                           # esp-optimization
@@ -323,7 +323,7 @@ updated_by: KRN | None = app_obj.updated_by        # krn:user:example@kelvininc.
 ### Get App Version
 
 ```python
-app_version: responses.AppVersionGet = await app.apiapps.get_app_version(
+app_version: responses.AppVersionGet = await app.api.apps.get_app_version(
     app_name="esp-optimization",
     app_version="1.0.06112307",
 )
@@ -340,7 +340,7 @@ param_first: manifest.Parameter | None = app_version.parameters[0] if app_versio
 
 ```python
 # sort_by: resource, source
-contexts: list[type_.AppsResourceContext] = await app.apiapps.list_apps_context(
+contexts: list[type_.AppsResourceContext] = await app.api.apps.list_apps_context(
     data={"resources": ["krn:asset:pcp_01"]},
     sort_by=["resource"],
     direction="asc",
@@ -359,7 +359,7 @@ source: KRN | None = context.source                     # krn:wlappv:my-cluster/
 
 ```python
 # sort_by: name, title, app_name, data_type, created_at, created_by, updated_at, updated_by
-params: list[type_.AppParameter] = await app.apiapp_parameters.list_app_parameters(
+params: list[type_.AppParameter] = await app.api.app_parameters.list_app_parameters(
     data={"names": ["kelvin_closed_loop"]},
     sort_by=["name"],
     direction="asc",
@@ -380,7 +380,7 @@ updated_at: datetime | None = param.updated_at     # 2026-02-05 04:58:54.133504+
 
 ```python
 # sort_by: name, title, app_name, app_version, cluster_name, node_name, status_last_seen, status_state, created_at, created_by, updated_at, updated_by
-workloads: list[type_.WorkloadSummary] = await app.apiapp_workloads.list_workloads(
+workloads: list[type_.WorkloadSummary] = await app.api.app_workloads.list_workloads(
     app_names=["esp-optimization"],
     statuses=["running"],
     sort_by=["updated_at"],
@@ -400,7 +400,7 @@ status: type_.WorkloadStatus | None = workload_summary.status  # last_seen=datet
 ### Get Workload
 
 ```python
-workload: responses.WorkloadGet = await app.apiapp_workloads.get_workload(
+workload: responses.WorkloadGet = await app.api.app_workloads.get_workload(
     workload_name="esp-optimization-dgocvxnoqdgm0"
 )
 
@@ -420,7 +420,7 @@ status: type_.WorkloadStatus | None = workload.status  # last_seen=datetime.date
 
 ```python
 # sort_by: id, title, resource, description, expiration_date, timestamp, trace_id, type, state, created, created_by, updated, updated_by
-actions: list[type_.CustomAction] = await app.apicustom_actions.list_custom_actions(
+actions: list[type_.CustomAction] = await app.api.custom_actions.list_custom_actions(
     data={"states": ["pending", "completed"]},
     sort_by=["created"],
     direction="desc",
@@ -439,7 +439,7 @@ message: str | None = action.message               # Slack message sent
 ### Get Custom Action
 
 ```python
-action: responses.CustomActionGet = await app.apicustom_actions.get_custom_action(
+action: responses.CustomActionGet = await app.api.custom_actions.get_custom_action(
     action_id="c007e19d-3a71-406b-aaa1-372c58a85760"
 )
 
@@ -457,7 +457,7 @@ updated_by: KRN = action.updated_by                # krn:wl:my-cluster/slack-mes
 
 ```python
 # sort_by: id, start_date, end_date, tag_name, resource, source, description, created, updated
-tags: list[type_.DataTag] = await app.apidata_tag.list_data_tag(
+tags: list[type_.DataTag] = await app.api.data_tag.list_data_tag(
     data={"start_date": "2026-01-01T00:00:00Z", "end_date": "2026-01-31T00:00:00Z"},
     sort_by=["start_date"],
     direction="desc",
@@ -477,7 +477,7 @@ end_date: datetime | None = tag.end_date           # 2026-01-29 17:02:27.395000+
 
 
 ```python
-tag: responses.DataTagGet = await app.apidata_tag.get_data_tag(
+tag: responses.DataTagGet = await app.api.data_tag.get_data_tag(
     datatag_id="a4df8bb6-001d-48b0-8d6c-5b84ca8e5e46"
 )
 
