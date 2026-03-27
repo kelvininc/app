@@ -22,7 +22,7 @@ Ask at most 2-3 high-impact questions at a time, and only when missing informati
 
 Prioritize questions in this order:
 - Inputs: stream names, data types, and target assets.
-- Outputs: data streams and/or recommendation/control/custom-action outputs.
+- Outputs: data streams and/or recommendation/control/custom-action/data-quality outputs.
 - Behavior: thresholds, logic, cadence, and expiration/timeout requirements.
 - Configuration: app-level configuration vs per-asset parameters.
 - Delivery constraints: standalone outputs vs outputs embedded in recommendations.
@@ -41,7 +41,7 @@ Pick exactly one first reference file from the list below, then expand only if n
 - `app.yaml` declarations, defaults, UI schema wiring, or naming mismatches: [references/app-yaml.md](references/app-yaml.md)
 - Lifecycle/decorators/runtime callback behavior: [references/sdk-patterns.md](references/sdk-patterns.md)
 - Windowing, DataFrame aggregation, or shared state races: [references/data-processing.md](references/data-processing.md)
-- Output message classes, recommendations, control changes, custom actions, or evidences: [references/messages-outputs.md](references/messages-outputs.md)
+- Output message classes, recommendations, control changes, custom actions, data tags (also known as data labels), or evidences: [references/messages-outputs.md](references/messages-outputs.md)
 - Kelvin API reads/writes (`app.api`) or timeseries queries: [references/api-client.md](references/api-client.md)
 - KRN construction/parsing: [references/krn.md](references/krn.md)
 - Ambiguous runtime failures or mixed-category bugs: [references/best-practices.md](references/best-practices.md)
