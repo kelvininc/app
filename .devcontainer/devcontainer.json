@@ -10,7 +10,8 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {
             "version": "latest"
-        }
+        },
+        "ghcr.io/devcontainers/features/github-cli:1": {}
     },
     // VS Code extensions
     "customizations": {
