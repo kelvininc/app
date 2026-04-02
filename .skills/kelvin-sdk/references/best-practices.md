@@ -2,7 +2,7 @@
 
 ## When to Use
 
-Use this file as a final implementation/review checklist and to debug common SmartApp failures.
+Use this file as a final implementation/review checklist and to debug common Kelvin app failures. For importer-specific structure and runtime guidance, pair it with [importer-apps.md](importer-apps.md).
 
 ## Table of Contents
 - [When to Use](#when-to-use)
@@ -22,9 +22,11 @@ Use this file as a final implementation/review checklist and to debug common Sma
 - Confirm stream names used in code match declarations and naming rules.
 - Confirm long-running logic runs in `@app.task` or timers (not blocking stream handlers).
 - Confirm recommendations/actions include explicit expiration/timeout behavior.
+- For importers, confirm `importer_io` and `ui_schemas.io_configuration` are aligned and runtime mapping is read from deployed asset/datastream configuration.
 
 For canonical templates and examples, use:
 - [app-yaml.md](app-yaml.md)
+- [importer-apps.md](importer-apps.md)
 - [sdk-patterns.md](sdk-patterns.md)
 - [messages-outputs.md](messages-outputs.md)
 - [data-processing.md](data-processing.md)
@@ -35,6 +37,8 @@ For canonical templates and examples, use:
 - Put global values under `defaults.configuration` and per-asset values under `parameters`.
 - Use app names with hyphens; use snake_case for stream/parameter names (dots only when needed).
 - Keep UI schemas aligned with declared parameter/configuration keys.
+- For importers, do not declare external topics or signals as `data_streams.inputs`; use `importer_io` and `io_configuration` instead.
+- For importers, do not manually declare Kelvin client credentials in `defaults.system.environment_vars`.
 
 Reference: [app-yaml.md](app-yaml.md)
 
@@ -79,6 +83,7 @@ Reference: [data-processing.md](data-processing.md)
 - `@app.stream` and `@app.timer` continue after exceptions; `@app.task` does not.
 - Wrap long-running task loops in `try/except` and log exceptions with context.
 - Validate business/domain rules only; rely on framework guarantees for typed payload/resource fields.
+- In importers, catch network-layer failures such as `OSError` in reconnect loops in addition to connector-library exceptions.
 
 Reference: [sdk-patterns.md](sdk-patterns.md)
 

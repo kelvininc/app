@@ -2,17 +2,20 @@
 
 ## When to Use
 
-Use this file to create or edit `app.yaml`, declare inputs/outputs, configure defaults, and wire UI schemas.
+Use this file to create or edit `app.yaml`, declare inputs/outputs, configure defaults, and wire UI schemas for SmartApps. For importer applications (`type: importer`), use [importer-apps.md](importer-apps.md) first.
 
 ## Table of Contents
 - [When to Use](#when-to-use)
 - [Full Template](#full-template)
+- [Importer Note](#importer-note)
 - [Data Types](#data-types)
 - [Naming Conventions](#naming-conventions)
 - [Configuration vs Parameters](#configuration-vs-parameters)
 - [UI Schemas](#ui-schemas)
 
 ## Full Template
+
+This template is for SmartApps (`type: app`).
 
 ```yaml
 spec_version: 5.0.0
@@ -120,6 +123,16 @@ defaults:
       - name: KELVIN_CLIENT__CLIENT_SECRET
         value: <% secrets.applications-client-secret %>
 ```
+
+## Importer Note
+
+If the app ingests data from an external system and publishes it into Kelvin, do not adapt the SmartApp template above. Importers use a different structure:
+- `type: importer`
+- `importer_io` instead of `data_streams.inputs`
+- `ui_schemas.io_configuration` for per-stream mapping
+- a manual async runtime pattern in `main.py`
+
+Use [importer-apps.md](importer-apps.md) for the canonical importer structure.
 
 ## Data Types
 

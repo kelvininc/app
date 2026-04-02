@@ -1,19 +1,19 @@
 ---
 name: kelvin-sdk
-description: Use when implementing, reviewing, debugging, refactoring, or migrating Kelvin SmartApps with the Kelvin Python SDK, including app.yaml schema/configuration, stream and window handlers, recommendations/control changes/custom actions, Kelvin API client usage, and KRN construction/parsing.
+description: Use when implementing, reviewing, debugging, refactoring, or migrating Kelvin applications with the Kelvin Python SDK, including SmartApps and importers, app.yaml schema/configuration, stream and window handlers, importer ingestion loops, recommendations/control changes/custom actions, Kelvin API client usage, and KRN construction/parsing.
 ---
 
 # Kelvin SDK Developer
 
-Build and modify Kelvin SmartApps with the Kelvin Python SDK. Start with a minimal working implementation, then expand only for explicit requirements.
+Build and modify Kelvin SmartApps and importer applications with the Kelvin Python SDK. Start with a minimal working implementation, then expand only for explicit requirements.
 
 ## Execution Workflow
 
 1. Clarify only missing requirements.
-2. Identify app shape (stream-only, windows, recommendations/actions, API client usage).
+2. Identify app shape (SmartApp vs importer, then stream-only, windows, recommendations/actions, API client usage).
 3. Choose the first reference file with deterministic decision rules.
 4. Load only additional references required by the task.
-5. Implement with decorator-based handlers by default.
+5. Implement with the runtime model that matches the app type.
 6. Validate against the rule checklist before finalizing.
 
 ## Clarify Missing Requirements
@@ -21,10 +21,12 @@ Build and modify Kelvin SmartApps with the Kelvin Python SDK. Start with a minim
 Ask at most 2-3 high-impact questions at a time, and only when missing information blocks correct implementation.
 
 Prioritize questions in this order:
+- App type: SmartApp (`type: app`) vs importer (`type: importer`).
 - Inputs: stream names, data types, and target assets.
 - Outputs: data streams and/or recommendation/control/custom-action/data-quality outputs.
 - Behavior: thresholds, logic, cadence, and expiration/timeout requirements.
 - Configuration: app-level configuration vs per-asset parameters.
+- Importer mapping: external source details and per-stream IO configuration shape.
 - Delivery constraints: standalone outputs vs outputs embedded in recommendations.
 
 If the request is already explicit enough, proceed without extra questions.
@@ -38,6 +40,7 @@ When details are missing but non-blocking, proceed with explicit assumptions and
 ## First-File Decision Rules
 
 Pick exactly one first reference file from the list below, then expand only if needed:
+- Importer structure, `type: importer`, `importer_io`, `io_configuration`, external ingestion loops, or runtime-mapped streams: [references/importer-apps.md](references/importer-apps.md)
 - `app.yaml` declarations, defaults, UI schema wiring, or naming mismatches: [references/app-yaml.md](references/app-yaml.md)
 - Lifecycle/decorators/runtime callback behavior: [references/sdk-patterns.md](references/sdk-patterns.md)
 - Windowing, DataFrame aggregation, or shared state races: [references/data-processing.md](references/data-processing.md)
@@ -50,21 +53,25 @@ Do not load all references by default. Load only what the current task needs.
 
 ## Implementation Defaults
 
-- Use decorator-based API (`@app.stream()`, `@app.timer()`, `@app.task`) unless explicitly asked for function-based patterns.
+- Use decorator-based API (`@app.stream()`, `@app.timer()`, `@app.task`) for SmartApps unless explicitly asked for function-based patterns.
+- Use a manual async loop with `await app.connect()` for importer applications.
 - Prefer small explicit handlers with clear stream and asset names.
 - Keep business validation in app logic. Rely on framework guarantees for SDK-managed fields.
 - Use per-asset parameters for asset-specific behavior and `app.app_configuration` for global behavior.
 - Use windows only when aggregation is required. Process streams directly otherwise.
 - Keep recommendations and actions minimal and explicit. Add evidences only when requested or clearly useful.
+- For importers, build routing from runtime asset/datastream configuration instead of hardcoding asset or stream bindings in code.
 
 ## Validation Checklist
 
 ### `app.yaml` and schema alignment
 
 - Declare all published outputs in `app.yaml` before publishing.
+- For importers, use `importer_io` and `ui_schemas.io_configuration`; do not model external ingestion with `data_streams.inputs`.
 - Do not introduce a `configuration:` declaration. Use `defaults.configuration` for global values.
 - Keep parameter names identical between `app.yaml` and `ui_schemas`.
 - Follow naming conventions: app names with hyphens, stream/parameter names with underscores (or dots when required).
+- Do not declare Kelvin runtime credentials in importer `defaults.system.environment_vars`.
 
 ### Messages and actions
 
@@ -82,6 +89,7 @@ Do not load all references by default. Load only what the current task needs.
 ### Reliability and safety
 
 - Treat `@app.task` exceptions as fatal unless caught. Add error handling in long-running tasks.
+- For importers, catch connector-library exceptions and `OSError` in reconnect loops.
 - Log decisions and threshold crossings with asset and stream context.
 - Keep secrets and credentials out of source files.
 

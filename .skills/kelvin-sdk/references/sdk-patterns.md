@@ -2,7 +2,7 @@
 
 ## When to Use
 
-Use this file to build app structure and runtime behavior: imports, lifecycle callbacks, stream decorators, timers, tasks, and error-handling patterns.
+Use this file to build SmartApp runtime behavior: imports, lifecycle callbacks, stream decorators, timers, tasks, and error-handling patterns. For importer ingestion loops and runtime-mapped IO, use [importer-apps.md](importer-apps.md).
 
 ## Table of Contents
 - [When to Use](#when-to-use)
@@ -10,6 +10,7 @@ Use this file to build app structure and runtime behavior: imports, lifecycle ca
 - [Lifecycle and Callbacks](#lifecycle-and-callbacks)
 - [Extended Callbacks](#extended-callbacks)
 - [Decorator-Based Streams](#decorator-based-streams)
+- [Importer Runtime Note](#importer-runtime-note)
 - [Tasks and Timers](#tasks-and-timers)
 - [Function-Based Pattern](#function-based-pattern)
 - [Error Handling](#error-handling)
@@ -109,6 +110,16 @@ async def monitor(msg: AssetDataMessage) -> None:
         if value > max_pressure:
             logger.warning("Pressure limit exceeded", asset=asset, value=value, limit=max_pressure)
 ```
+
+## Importer Runtime Note
+
+Do not use decorator-based stream handlers as the primary runtime model for importer applications. Importers should:
+- call `await app.connect()` explicitly
+- own the async ingestion or reconnect loop
+- read runtime stream mapping from `app.assets[asset].datastreams[stream].configuration`
+- publish with `Message` and `KMessageTypeData`
+
+For the canonical importer `main.py` pattern, use [importer-apps.md](importer-apps.md).
 
 ## Tasks and Timers
 
