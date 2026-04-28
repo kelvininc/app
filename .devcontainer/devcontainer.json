@@ -12,6 +12,8 @@
             "version": "latest"
         }
     },
+    // Sync Kelvin agent files after the workspace is mounted
+    "postCreateCommand": "kelvin app agent sync --latest",
     // VS Code extensions
     "customizations": {
         "vscode": {
